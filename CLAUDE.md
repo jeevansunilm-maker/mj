@@ -4,7 +4,7 @@
 
 Never install a skill (e.g. `npx skills add ...`), plugin, or MCP server without this check:
 
-1. **Use the `skill-inspector` skill** (`.claude/skills/skill-inspector/`). Read every file in it first (SKILL.md, references, scripts, configs) before installing.
+1. **Use the `skill-inspector` skill** (`.claude/skills/skill-inspector/`) to read every file of the new skill (SKILL.md, references, scripts, configs) before installing.
 2. **Report to me in plain language:**
    - Can it read or steal passwords, API keys, tokens, `.env` files, SSH keys, or browser data?
    - Can it read personal details or files outside the project?
