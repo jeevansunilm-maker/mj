@@ -176,7 +176,7 @@ export async function startFakeGoogle({ shared = [], tabs = { Sheet1: [["Date", 
 }
 
 /** Builds a full app with fakes and starts it on a random port. */
-export async function startTestApp({ ollamaOptions = {}, claudeOptions = {}, system = fakeSystem(), now, sheets = null, tts = null } = {}) {
+export async function startTestApp({ ollamaOptions = {}, claudeOptions = {}, system = fakeSystem(), now, sheets = null, voiceStudio = null } = {}) {
   const { createApp } = await import("../src/app.js");
   const { loadConfig } = await import("../src/config.js");
   const { createProfileStore } = await import("../src/profileStore.js");
@@ -201,9 +201,9 @@ export async function startTestApp({ ollamaOptions = {}, claudeOptions = {}, sys
     ...(now ? { now } : {}),
     integrations: {
       googleSheets: sheets ? { connected: true, email: sheets.clientEmail } : { connected: false },
-      elevenlabs: { connected: Boolean(tts), voiceId: tts?.defaultVoiceId },
+      voiceStudio: { connected: Boolean(voiceStudio), url: voiceStudio?.url },
     },
-    tts,
+    voiceStudio,
   });
   const server = app.listen(0, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));

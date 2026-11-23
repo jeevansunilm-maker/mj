@@ -44,7 +44,7 @@ backend/src/system/index.js    picks the OS module; loads the app allow-list (da
 backend/src/google/            serviceAccount.js (JWT → access token, node:crypto) + sheets.js (Sheets v4 via fetch)
 backend/src/security.js        Host allow-list (DNS rebinding), cross-site POST block, security headers
 backend/src/chatEngine.js      the single conversation turn used by the web app AND the bots
-backend/src/voice/elevenlabs.js  ElevenLabs TTS (fetch); /api/tts returns audio, key never leaves the server
+backend/src/voice/voiceStudio.js  VoiceStudio app on this PC (OpenAI-compatible /v1/audio/speech, WAV); /api/tts proxies it
 backend/src/bots/              telegram.js (long polling), discord.js (Gateway via Node's WebSocket), brain.js
 backend/src/providers/
   index.js                     provider registry

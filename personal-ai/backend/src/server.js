@@ -11,7 +11,7 @@ import { createTools } from "./tools/index.js";
 import { createTokenProvider, loadServiceAccount } from "./google/serviceAccount.js";
 import { createSheetsClient } from "./google/sheets.js";
 import { createChatEngine } from "./chatEngine.js";
-import { createElevenLabs } from "./voice/elevenlabs.js";
+import { createVoiceStudio } from "./voice/voiceStudio.js";
 import { startTelegramBot } from "./bots/telegram.js";
 import { startDiscordBot } from "./bots/discord.js";
 
@@ -36,7 +36,8 @@ startReminderScheduler({ store: reminders, events, notify: (t, b) => system.noti
 
 const profileStore = createProfileStore(config.dataDir);
 const engine = createChatEngine({ config, providers, profileStore, tools });
-const tts = createElevenLabs(config.elevenlabs);
+const voiceStudio = createVoiceStudio(config.voiceStudio);
+const voiceStudioUp = voiceStudio ? await voiceStudio.health() : false;
 
 // Chat-app bots start only when their token is set in .env.
 const bots = [];
@@ -56,10 +57,10 @@ const app = createApp({
   events,
   pendingActions,
   engine,
-  tts,
+  voiceStudio,
   integrations: {
     googleSheets: sheets ? { connected: true, email: sheets.clientEmail } : { connected: false, problem: sheetsProblem },
-    elevenlabs: { connected: Boolean(tts), voiceId: tts?.defaultVoiceId },
+    voiceStudio: { connected: Boolean(voiceStudio), url: voiceStudio?.url },
     telegram: { connected: Boolean(config.telegram.token), allowedUsers: config.telegram.allowedUsers.length },
     discord: { connected: Boolean(config.discord.token), allowedUsers: config.discord.allowedUsers.length },
   },
@@ -77,7 +78,11 @@ app.listen(config.port, config.host, async () => {
       ? `  ✔ Google Sheets: share your sheets with ${sheets.clientEmail}`
       : `  ✘ Google Sheets: ${sheetsProblem || "not set up (see README → Google Sheets)"}`,
   );
-  console.log(tts ? `  ✔ ElevenLabs voice (${config.elevenlabs.modelId})` : "  ✘ ElevenLabs: add ELEVENLABS_API_KEY to .env for natural voices");
+  if (voiceStudio) {
+    console.log(voiceStudioUp
+      ? `  ✔ VoiceStudio found at ${voiceStudio.url}: its voices are in Profile → Spoken voice`
+      : `  ⚠ VoiceStudio not running at ${voiceStudio.url}: open the app to use its voices`);
+  }
   for (const [name, c] of [["Telegram", config.telegram], ["Discord", config.discord]]) {
     if (!c.token) console.log(`  ✘ ${name} bot: not set up (see README)`);
     else if (!c.allowedUsers.length) console.log(`  ⚠ ${name} bot: running, but nobody is allowed yet. Message it to get your user ID.`);

@@ -16,7 +16,7 @@ const POLISH_PROMPT =
 export function createApp({
   config, providers, profileStore, tools = [], reminders, events, pendingActions,
   integrations = { googleSheets: { connected: false } }, now = () => new Date(),
-  engine = createChatEngine({ config, providers, profileStore, tools, now }), tts = null,
+  engine = createChatEngine({ config, providers, profileStore, tools, now }), voiceStudio = null,
 }) {
   const app = express();
   app.disable("x-powered-by");
@@ -101,22 +101,22 @@ export function createApp({
     }
   });
 
-  // ── Voice: ElevenLabs text-to-speech ─────────────────────
+  // ── Voice: VoiceStudio (natural voices from the app on this PC) ──
   app.get("/api/voices", async (_req, res) => {
-    if (!tts) return res.json({ connected: false, voices: [] });
+    if (!voiceStudio) return res.json({ connected: false, voices: [], error: "VoiceStudio is turned off (VOICESTUDIO_URL=off)." });
     try {
-      res.json({ connected: true, defaultVoiceId: tts.defaultVoiceId, voices: await tts.voices() });
+      res.json({ connected: true, voices: await voiceStudio.voices() });
     } catch (err) {
-      res.status(502).json({ connected: true, error: err.message, voices: [] });
+      res.json({ connected: false, voices: [], error: err.message });
     }
   });
 
   app.post("/api/tts", async (req, res) => {
-    if (!tts) return res.status(503).json({ error: "ElevenLabs isn't set up. Add ELEVENLABS_API_KEY to .env." });
+    if (!voiceStudio) return res.status(503).json({ error: "VoiceStudio is turned off (VOICESTUDIO_URL=off)." });
     const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
     if (!text) return res.status(400).json({ error: "text is required" });
     try {
-      const { audio, contentType } = await tts.speak(text, typeof req.body?.voiceId === "string" ? req.body.voiceId : undefined);
+      const { audio, contentType } = await voiceStudio.speak(text, typeof req.body?.voiceId === "string" ? req.body.voiceId : undefined);
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "no-store");
       res.end(audio);

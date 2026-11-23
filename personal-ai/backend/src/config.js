@@ -17,10 +17,10 @@ export function loadConfig(env = process.env) {
     frontendDir: path.join(ROOT_DIR, "frontend"),
     // Google Sheets: path to the service-account key (see README → Google Sheets)
     googleKeyFile: env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(env.DATA_DIR ?? path.join(ROOT_DIR, "data"), "google-service-account.json"),
-    elevenlabs: {
-      apiKey: env.ELEVENLABS_API_KEY ?? "",
-      voiceId: env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM", // "Rachel", a built-in voice
-      modelId: env.ELEVENLABS_MODEL || "eleven_flash_v2_5", // fast + multilingual
+    voiceStudio: {
+      // VoiceStudio app on this PC. Set VOICESTUDIO_URL=off to disable.
+      baseUrl: env.VOICESTUDIO_URL || "http://127.0.0.1:3900",
+      apiKey: env.VOICESTUDIO_API_KEY ?? "",
     },
     telegram: {
       token: env.TELEGRAM_BOT_TOKEN ?? "",
@@ -31,7 +31,9 @@ export function loadConfig(env = process.env) {
       allowedUsers: (env.DISCORD_ALLOWED_USERS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     },
     ollama: {
-      baseUrl: (env.OLLAMA_URL ?? "http://127.0.0.1:11434").replace(/\/+$/, ""),
+      // Accepts "http://localhost:11434" or the OpenAI-style "http://localhost:11434/v1";
+      // this app uses Ollama's native /api routes on the same server.
+      baseUrl: (env.OLLAMA_URL || "http://127.0.0.1:11434").replace(/\/+$/, "").replace(/\/v1$/, ""),
       model: env.OLLAMA_MODEL ?? "llama3.2",
     },
     claude: {

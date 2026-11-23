@@ -67,21 +67,21 @@ Click **🗣️**, or press **Ctrl+Shift+H**, then just talk.
 2. Your AI **speaks the answer** and then listens again.
 3. To stop, say **"stop listening"** or **"goodbye"**, or click 🗣️.
 
-Choose the spoken voice and speed in **Profile & personality → Spoken voice**. Windows voices such as *Microsoft Zira* or *David* work offline. Voices marked "online" sound more natural but need internet. Use Chrome or Edge.
+Choose the spoken voice and speed in **Profile & personality → Spoken voice**. Your VoiceStudio voices sound the most natural (see below). The built-in Windows voices, such as *Microsoft Zira* or *David*, work as a basic fallback. Use Chrome or Edge.
 
-## Natural voice (ElevenLabs)
+## Natural voice (VoiceStudio)
 
-ElevenLabs makes your AI sound like a real person.
+Your AI speaks with **VoiceStudio**, the voice studio app on your PC. It's free, private (your text never leaves your PC), and works offline once its voice models are downloaded. Any voice you **clone or design** in VoiceStudio can be your AI's voice.
 
-1. Sign up at [elevenlabs.io](https://elevenlabs.io). The free plan includes some speech each month.
-2. Open your profile → **API Keys** → **Create**, then copy the key.
-3. In `.env`, set `ELEVENLABS_API_KEY=` to your key, then restart the app.
-4. In **Profile & personality → Spoken voice**, pick a voice under *ElevenLabs*. Voices you made or added in ElevenLabs, including a clone of your own voice, appear there too.
+1. Open the **VoiceStudio** app and leave it running. Its API is at `http://127.0.0.1:3900`, which is where your AI looks by default.
+2. Start or restart your Personal AI. The terminal shows `✔ VoiceStudio found`.
+3. In **Profile & personality → Spoken voice**, pick a voice under *VoiceStudio*: *Default voice*, or one of your saved voice profiles. Click **Test voice**.
 
-How it works:
-- **Your key stays on your PC.** The browser only receives the audio.
-- **Text you hear is sent to ElevenLabs** to turn it into speech, and ElevenLabs bills by character.
-- **Fallback:** if ElevenLabs fails (no internet, quota used up), your AI switches to the free PC voice for that sentence.
+Good to know:
+- **If you start VoiceStudio after your AI**, just reopen Profile & personality and the voices appear.
+- **If VoiceStudio is closed or busy**, your AI uses the basic Windows voice for that sentence, so you always hear an answer.
+- **If you protected VoiceStudio with a login or key**, put its key in `.env` as `VOICESTUDIO_API_KEY=`.
+- **If VoiceStudio runs on a different port**, set `VOICESTUDIO_URL=` in `.env`. Set it to `off` to turn the feature off.
 
 ## Message your AI from your phone
 

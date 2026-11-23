@@ -335,14 +335,14 @@ function renderConnections(integrations = {}) {
   const box = $("connections");
   const line = (ok, label, detail) => h("div", {}, `${ok ? "✅" : "⚪"} `, h("strong", {}, label), detail ? ` · ${detail}` : "");
   const g = integrations.googleSheets ?? {};
-  const el = integrations.elevenlabs ?? {};
   const tg = integrations.telegram ?? {};
   const dc = integrations.discord ?? {};
   const bot = (b) => !b.connected ? "not set up (see README)"
     : b.allowedUsers ? `on · ${b.allowedUsers} allowed user(s)` : "on · nobody allowed yet: message the bot to get your ID";
   const parts = [
     h("strong", {}, "Connections"),
-    line(el.connected, "ElevenLabs voice", el.connected ? "natural voices available in Spoken voice" : "add ELEVENLABS_API_KEY to .env"),
+    line(state.localVoiceReady, "VoiceStudio voice",
+      state.localVoiceReady ? "your VoiceStudio voices are in Spoken voice" : `${state.localVoiceError || "not running"}. Open the VoiceStudio app, then reopen this panel.`),
     line(tg.connected && tg.allowedUsers > 0, "Telegram", bot(tg)),
     line(dc.connected && dc.allowedUsers > 0, "Discord", bot(dc)),
   ];
@@ -525,11 +525,12 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Speaking replies aloud ───────────────────────────────────
-// Two voice engines:
-//   "el:<id>"  ElevenLabs (natural, online, needs ELEVENLABS_API_KEY on the server)
-//   "pc:<name>" voices built into Windows / the browser (free, offline)
-// Text is spoken sentence by sentence as it streams in. ElevenLabs audio for
-// later sentences is fetched while earlier ones play, so there are few gaps.
+// Voice engines (the saved choice is "<prefix>:<voice>"):
+//   "vs:<id>"   VoiceStudio app on this PC (natural, free, private)
+//   "pc:<name>" voices built into Windows / the browser (basic, offline)
+// If VoiceStudio is closed or fails, that sentence uses the Windows voice.
+// Text is spoken sentence by sentence as it streams in.
+// Audio for later sentences is made while earlier ones play, so there are few gaps.
 const speaker = {
   buffer: "",
   queued: 0,
@@ -539,8 +540,8 @@ const speaker = {
   idleWaiters: [],
   choice() {
     const v = state.prefs.voice ?? "";
-    if (v.startsWith("el:") || v.startsWith("pc:")) return v;
-    if (!v && state.integrations?.elevenlabs?.connected) return `el:${state.integrations.elevenlabs.voiceId}`;
+    if (/^(vs|pc):/.test(v)) return v;
+    if (!v && state.localVoiceReady) return "vs:default";
     return v ? `pc:${v}` : "pc:"; // older saved setting = PC voice name
   },
   browserSay(text) {
@@ -569,8 +570,8 @@ const speaker = {
     if (!clean) return;
     const gen = this.generation;
     const choice = this.choice();
-    // Start downloading ElevenLabs audio now, even if something is still playing.
-    const audio = choice.startsWith("el:")
+    // Start making the audio now, even if something is still playing.
+    const audio = choice.startsWith("vs:")
       ? api("/api/tts", { text: clean, voiceId: choice.slice(3) }).then(async (r) => {
           if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
           return URL.createObjectURL(await r.blob());
@@ -590,7 +591,7 @@ const speaker = {
           URL.revokeObjectURL(url);
         } catch (err) {
           if (gen !== this.generation) return;
-          showStatus(false, `ElevenLabs: ${err.message} Using the PC voice instead.`);
+          showStatus(false, `${err.message} Using the Windows voice instead.`);
           await this.browserSay(clean);
         }
       })
@@ -624,24 +625,32 @@ const speaker = {
 
 async function loadVoices() {
   const groups = [];
-  if (state.integrations?.elevenlabs?.connected) {
-    try {
-      const data = await (await fetch("/api/voices")).json();
-      const g = h("optgroup", { label: "ElevenLabs (natural, online)" });
-      for (const v of data.voices ?? []) g.append(new Option(v.name, `el:${v.id}`));
-      if (!data.voices?.length) g.append(new Option(data.error ? `⚠️ ${data.error}` : "Default ElevenLabs voice", `el:${data.defaultVoiceId ?? ""}`));
-      groups.push(g);
-    } catch { /* offline: only PC voices */ }
-  }
-  const pc = h("optgroup", { label: "This PC (free, offline)" });
-  pc.append(new Option("Default PC voice", "pc:"));
+  state.localVoiceReady = false;
+  state.localVoiceError = "";
+  try {
+    const data = await (await fetch("/api/voices")).json();
+    const vs = h("optgroup", { label: "VoiceStudio (this PC, natural)" });
+    for (const v of data.voices ?? []) vs.append(new Option(v.name, `vs:${v.id}`));
+    if (!data.voices?.length) {
+      state.localVoiceError = data.error ?? "VoiceStudio has no voices yet.";
+      const o = new Option(`⚠️ ${state.localVoiceError}`, "vs:default");
+      o.disabled = true;
+      vs.append(o);
+    }
+    state.localVoiceReady = Boolean(data.voices?.length);
+    groups.push(vs);
+  } catch { /* backend restarting: only PC voices */ }
+  const pc = h("optgroup", { label: "Windows voices (basic)" });
+  pc.append(new Option("Default Windows voice", "pc:"));
   if ("speechSynthesis" in window) {
     for (const v of speechSynthesis.getVoices()) pc.append(new Option(`${v.name} (${v.lang})${v.localService ? "" : " · online"}`, `pc:${v.name}`));
   }
   groups.push(pc);
   els.voiceSelect.replaceChildren(...groups);
   const want = speaker.choice();
-  els.voiceSelect.value = [...els.voiceSelect.options].some((o) => o.value === want) ? want : els.voiceSelect.options[0]?.value;
+  const ok = [...els.voiceSelect.options].some((o) => o.value === want && !o.disabled);
+  els.voiceSelect.value = ok ? want : "pc:";
+  renderConnections(state.integrations);
 }
 if ("speechSynthesis" in window) speechSynthesis.onvoiceschanged = loadVoices;
 els.voiceSelect.onchange = () => savePrefs({ voice: els.voiceSelect.value });
@@ -839,7 +848,7 @@ function autoGrow() { els.input.style.height = "auto"; els.input.style.height = 
 els.input.addEventListener("input", autoGrow);
 els.stopBtn.onclick = () => state.controller?.abort();
 els.newChat.onclick = () => { state.activeId = null; saveChats(); render(); els.sidebar.classList.remove("open"); els.input.focus(); };
-els.openProfile.onclick = () => els.profileDialog.showModal();
+els.openProfile.onclick = () => { loadVoices(); els.profileDialog.showModal(); };
 els.toggleSidebar.onclick = () => els.sidebar.classList.toggle("open");
 els.providerSelect.onchange = () => { renderModels(); savePrefs(); };
 els.modelSelect.onchange = () => savePrefs();

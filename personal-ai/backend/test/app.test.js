@@ -80,3 +80,10 @@ test("stats endpoint reports CPU and memory", async () => {
   assert.ok(s.memTotalGb > 0 && s.memPct >= 0 && s.memPct <= 100);
   assert.ok(s.uptimeSec > 0);
 });
+
+test("OLLAMA_URL accepts the OpenAI-style /v1 address", async () => {
+  const { loadConfig } = await import("../src/config.js");
+  assert.equal(loadConfig({ OLLAMA_URL: "http://localhost:11434/v1" }).ollama.baseUrl, "http://localhost:11434");
+  assert.equal(loadConfig({ OLLAMA_URL: "http://localhost:11434/v1/" }).ollama.baseUrl, "http://localhost:11434");
+  assert.equal(loadConfig({}).ollama.baseUrl, "http://127.0.0.1:11434");
+});

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.0 (2026-11-23)
+
+### Changed
+- **VoiceStudio replaces ElevenLabs.** Your AI's natural voice now comes from the VoiceStudio app on your PC (`http://127.0.0.1:3900`): free, private, offline-capable, and able to use your cloned or designed voices. The ElevenLabs code and settings were removed. Windows voices remain the fallback.
+- `OLLAMA_URL` also accepts the OpenAI-style address (`http://localhost:11434/v1`).
+
+### Added
+- Settings: `VOICESTUDIO_URL` and `VOICESTUDIO_API_KEY`.
+- The startup summary and the Profile panel show whether VoiceStudio was found.
+
 ## 1.4.0 (2026-11-23)
 
 ### Added
