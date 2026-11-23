@@ -67,4 +67,22 @@ You type ──▶ frontend/app.js ──POST /api/chat──▶ backend/src/app
 
 - **It can be confidently wrong** (people call this "hallucination"). It predicts plausible text, which isn't always true text. Check anything important.
 - **Knowledge cutoff.** It only knows what was in its training data, unless you give it more (by pasting text, or later through tools like web search).
-- **It can't act on its own yet.** Right now it can only write text. Letting it *do* things (search the web, open apps, edit a spreadsheet) means giving it **tools**: the backend describes functions the model may ask to call, runs them, and sends the results back. That's the natural next step for this project.
+- **It only acts through tools.** The model itself can only write text. See the next section.
+
+## 8. How the AI "does things": tools
+
+When you say *"set the volume to 30"*:
+
+1. The backend sends your message **plus a list of tools**. Each tool has a name, a description and the inputs it takes, for example `volume(action, level)`.
+2. The model doesn't change anything itself. It replies with a request: *"call `volume` with `{action: "set", level: 30}`"*.
+3. The backend **checks** the request (is 30 between 0 and 100?) and runs it. On Windows it uses PowerShell.
+4. The result (`{volume: 30}`) goes back to the model, which writes the final answer: *"Done, volume is 30%."*
+
+This loop can repeat several times for one message, for example "check the volume, then lower it by 10". It's also why you stay in control:
+
+- The AI can only use the tools we gave it, and only with checked inputs.
+- Apps come from an allow-list, so it can't run arbitrary programs.
+- Risky actions (shut down, restart, sleep) only *ask*. You click **Confirm**.
+- Every action shows a card in the chat, so you can see what actually happened.
+
+Bigger local models (like `qwen2.5:7b`) and cloud models (Claude) are much better at choosing the right tool than tiny ones.

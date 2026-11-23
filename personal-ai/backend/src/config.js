@@ -21,6 +21,7 @@ export function loadConfig(env = process.env) {
       apiKey: env.ANTHROPIC_API_KEY ?? "",
       model: env.CLAUDE_MODEL ?? "claude-opus-5-5",
       effort: env.CLAUDE_EFFORT ?? "medium", // low | medium | high | xhigh | max
+      webSearch: (env.CLAUDE_WEB_SEARCH ?? "on") !== "off", // Claude's built-in web search
     },
   };
 }

@@ -12,6 +12,7 @@
       <aside class="sidebar" id="sidebar">
         <button class="btn primary wide" id="newChat" type="button">+ New chat</button>
         <ul class="chat-list" id="chatList" aria-label="Conversations"></ul>
+        <button class="btn wide" id="openReminders" type="button">⏰ Reminders <span class="badge" id="reminderCount" hidden></span></button>
         <button class="btn wide" id="openProfile" type="button">Profile &amp; personality</button>
       </aside>
 
@@ -35,10 +36,15 @@
           <div class="empty" id="emptyState">
             <h2>Hi! I'm your personal AI.</h2>
             <p>Ask me anything. Tell me about yourself under <strong>Profile &amp; personality</strong> so I can tailor my answers.</p>
+            <p class="examples">Try: “Remind me to drink water in 30 minutes” · “Draft an email asking for Friday off” · “Set volume to 30” · “Open notepad”</p>
           </div>
         </section>
 
         <form class="composer" id="composer">
+          <div class="voice">
+            <button class="btn icon-btn" id="micBtn" type="button" aria-label="Voice typing (Ctrl+Shift+Space)" title="Voice typing (Ctrl+Shift+Space)">🎤</button>
+            <button class="btn icon-btn" id="polishBtn" type="button" aria-pressed="true" aria-label="Polish dictation with AI" title="Polish dictation: remove ums, fix punctuation">✨</button>
+          </div>
           <label class="sr-only" for="input">Message</label>
           <textarea id="input" rows="1" placeholder="Message your AI… (Enter to send, Shift+Enter for new line)" required></textarea>
           <button class="btn primary" id="sendBtn" type="submit">Send</button>
@@ -65,6 +71,27 @@
         </div>
       </form>
     </dialog>
+
+    <!-- Reminders dialog -->
+    <dialog id="remindersDialog">
+      <div class="profile-form">
+        <h2>Reminders</h2>
+        <ul class="reminder-list" id="reminderList"></ul>
+        <form id="reminderForm" class="reminder-form">
+          <label>Remind me to <input name="text" maxlength="300" required placeholder="e.g. Call mom" /></label>
+          <label>At <input name="dueAt" type="datetime-local" required /></label>
+          <button class="btn primary" type="submit">Add</button>
+        </form>
+        <p class="hint" id="notifyHint"></p>
+        <div class="dialog-actions">
+          <button class="btn" id="enableNotifications" type="button">Enable desktop pop-ups</button>
+          <button class="btn" id="closeReminders" type="button">Close</button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Fired reminders pop up here -->
+    <div class="toasts" id="toasts" aria-live="assertive"></div>
 
     <script type="module" src="app.js"></script>
   </body>
