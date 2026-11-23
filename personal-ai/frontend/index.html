@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Personal AI</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <!-- Sidebar: saved conversations (stored in your browser) -->
+      <aside class="sidebar" id="sidebar">
+        <button class="btn primary wide" id="newChat" type="button">+ New chat</button>
+        <ul class="chat-list" id="chatList" aria-label="Conversations"></ul>
+        <button class="btn wide" id="openProfile" type="button">Profile &amp; personality</button>
+      </aside>
+
+      <!-- Main chat area -->
+      <main class="main">
+        <header class="topbar">
+          <button class="btn icon" id="toggleSidebar" type="button" aria-label="Show conversations">☰</button>
+          <h1 id="assistantTitle">Nova</h1>
+          <div class="controls">
+            <span class="dot" id="statusDot" title=""></span>
+            <label class="sr-only" for="providerSelect">AI provider</label>
+            <select id="providerSelect"></select>
+            <label class="sr-only" for="modelSelect">Model</label>
+            <select id="modelSelect"></select>
+          </div>
+        </header>
+
+        <p class="status-detail" id="statusDetail" role="status"></p>
+
+        <section class="messages" id="messages" aria-live="polite">
+          <div class="empty" id="emptyState">
+            <h2>Hi! I'm your personal AI.</h2>
+            <p>Ask me anything. Tell me about yourself under <strong>Profile &amp; personality</strong> so I can tailor my answers.</p>
+          </div>
+        </section>
+
+        <form class="composer" id="composer">
+          <label class="sr-only" for="input">Message</label>
+          <textarea id="input" rows="1" placeholder="Message your AI… (Enter to send, Shift+Enter for new line)" required></textarea>
+          <button class="btn primary" id="sendBtn" type="submit">Send</button>
+          <button class="btn" id="stopBtn" type="button" hidden>Stop</button>
+        </form>
+      </main>
+    </div>
+
+    <!-- Profile dialog: saved on the server in data/profile.json -->
+    <dialog id="profileDialog">
+      <form method="dialog" id="profileForm" class="profile-form">
+        <h2>Profile &amp; personality</h2>
+        <label>Your name <input name="userName" maxlength="100" placeholder="e.g. Sam" /></label>
+        <label>About you
+          <textarea name="aboutMe" rows="4" maxlength="5000" placeholder="Job, interests, goals, how you like answers…"></textarea>
+        </label>
+        <label>Assistant's name <input name="assistantName" maxlength="50" placeholder="Nova" /></label>
+        <label>Assistant's personality
+          <textarea name="personality" rows="3" maxlength="1000"></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button class="btn" value="cancel" type="submit" formnovalidate>Cancel</button>
+          <button class="btn primary" value="save" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
