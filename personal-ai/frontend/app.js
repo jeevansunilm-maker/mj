@@ -18,7 +18,8 @@ const els = {
   statusDot: $("statusDot"), statusDetail: $("statusDetail"),
   messages: $("messages"), emptyState: $("emptyState"),
   composer: $("composer"), input: $("input"), sendBtn: $("sendBtn"), stopBtn: $("stopBtn"),
-  micBtn: $("micBtn"), polishBtn: $("polishBtn"),
+  micBtn: $("micBtn"), polishBtn: $("polishBtn"), talkBtn: $("talkBtn"),
+  voiceSelect: $("voiceSelect"), rateInput: $("rateInput"), testVoice: $("testVoice"),
   profileDialog: $("profileDialog"), profileForm: $("profileForm"),
   remindersDialog: $("remindersDialog"), reminderList: $("reminderList"), reminderForm: $("reminderForm"),
   enableNotifications: $("enableNotifications"), closeReminders: $("closeReminders"), notifyHint: $("notifyHint"),
@@ -97,6 +98,14 @@ function renderChatList() {
   );
 }
 
+/** A small read-only table preview of spreadsheet rows. */
+function previewTable(rows) {
+  if (!rows?.length) return null;
+  return h("div", { class: "table-wrap" },
+    h("table", {}, h("tbody", {}, rows.map((r) => h("tr", {}, r.map((c) => h("td", {}, c)))))));
+}
+const sheetLink = (url) => url && h("a", { class: "btn", href: url, target: "_blank", rel: "noopener" }, "Open sheet");
+
 /** A card for an action the AI took (reminder, email draft, confirmation...). */
 function actionCard(part) {
   const d = part.display ?? { kind: part.isError ? "error" : "info", text: part.note };
@@ -123,8 +132,14 @@ function actionCard(part) {
         ),
       );
     }
+    case "sheet":
+      return h("div", { class: "card" },
+        h("div", {}, `${d.icon ?? "📊"} ${d.text}`),
+        previewTable(d.rows),
+        d.url ? h("div", { class: "row" }, sheetLink(d.url)) : null,
+      );
     case "confirm": {
-      const card = h("div", { class: "card" }, "⚠️ ", h("strong", {}, d.text), "?");
+      const card = h("div", { class: "card" }, h("div", {}, "⚠️ ", h("strong", {}, d.text), "?"), previewTable(d.rows));
       if (d.resolved) { card.append(h("div", { class: "resolved" }, d.resolved)); return card; }
       const resolve = async (choice) => {
         let text;
@@ -140,6 +155,7 @@ function actionCard(part) {
       const row = h("div", { class: "row" },
         h("button", { class: "btn primary", type: "button", onclick: () => resolve("confirm") }, "Confirm"),
         h("button", { class: "btn", type: "button", onclick: () => resolve("cancel") }, "Cancel"),
+        sheetLink(d.url),
       );
       card.append(row);
       return card;
@@ -174,6 +190,7 @@ async function loadStatus() {
   try {
     const data = await (await fetch("/api/status")).json();
     state.providers = data.providers;
+    renderConnections(data.integrations);
     const preferred = state.prefs.provider ?? data.defaultProvider;
     els.providerSelect.replaceChildren(
       ...data.providers.map((p) => new Option(`${p.label}${p.available ? "" : " — off"}`, p.id)),
@@ -230,7 +247,8 @@ async function* readEvents(res) {
 }
 
 // ── Sending a message & streaming the reply ──────────────────
-async function send(text) {
+/** hooks.onText(delta) is called as reply text streams in (used to speak it). */
+async function send(text, hooks = {}) {
   let chat = activeChat();
   if (!chat) {
     chat = { id: crypto.randomUUID(), title: "", messages: [] };
@@ -273,6 +291,7 @@ async function send(text) {
         }
         last.text += ev.text;
         textEl.textContent = last.text; // textContent: AI output is never run as HTML
+        hooks.onText?.(ev.text);
       } else if (ev.type === "tool") {
         const part = { type: "tool", name: ev.name, isError: ev.isError, display: ev.display, note: ev.note };
         parts.push(part);
@@ -305,6 +324,28 @@ function setBusy(busy) {
   els.stopBtn.hidden = !busy;
   els.input.disabled = busy;
   if (!busy) els.input.focus();
+}
+
+// ── Connections (Google Sheets) ──────────────────────────────
+function renderConnections(integrations = {}) {
+  const g = integrations.googleSheets ?? {};
+  const box = $("connections");
+  if (!g.connected) {
+    box.replaceChildren(
+      h("strong", {}, "Google Sheets: "),
+      g.problem ? `⚠️ ${g.problem}` : "not set up. See README → Google Sheets.",
+    );
+    return;
+  }
+  const copy = h("button", { class: "btn icon-btn", type: "button" }, "Copy");
+  copy.onclick = async () => {
+    try { await navigator.clipboard.writeText(g.email); copy.textContent = "Copied ✓"; } catch { copy.textContent = "Copy failed"; }
+  };
+  box.replaceChildren(
+    h("strong", {}, "Google Sheets: connected ✓"),
+    h("div", {}, "To let your AI use a sheet, click Share in Google Sheets and add this email as an Editor:"),
+    h("div", { class: "row" }, h("code", {}, g.email), copy),
+  );
 }
 
 // ── Profile ──────────────────────────────────────────────────
@@ -470,6 +511,155 @@ document.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.shiftKey && e.code === "Space") { e.preventDefault(); toggleDictation(); }
 });
 
+// ── Speaking replies aloud ───────────────────────────────────
+// Uses the voices installed in Windows / your browser (speechSynthesis).
+// Text is spoken sentence by sentence as it streams in, so it starts quickly.
+const speaker = {
+  buffer: "",
+  queued: 0,
+  idleWaiters: [],
+  voice() {
+    const name = state.prefs.voice;
+    return speechSynthesis.getVoices().find((v) => v.name === name) ?? null;
+  },
+  say(text) {
+    const clean = text.replace(/[*_#`>]+/g, " ").replace(/\s+/g, " ").trim();
+    if (!clean || !("speechSynthesis" in window)) return;
+    const u = new SpeechSynthesisUtterance(clean);
+    const v = this.voice();
+    if (v) { u.voice = v; u.lang = v.lang; }
+    u.rate = Number(state.prefs.rate ?? 1);
+    this.queued++;
+    u.onend = u.onerror = () => {
+      this.queued = Math.max(0, this.queued - 1);
+      if (!this.queued) this.idleWaiters.splice(0).forEach((fn) => fn());
+    };
+    speechSynthesis.speak(u);
+  },
+  feed(delta) {
+    this.buffer += delta;
+    // Speak every complete sentence; keep the unfinished tail for later.
+    const re = /[^.!?\n]+[.!?]+["')\]]*\s|[^\n]+\n/g;
+    let m, end = 0;
+    while ((m = re.exec(this.buffer))) { this.say(m[0]); end = re.lastIndex; }
+    this.buffer = this.buffer.slice(end);
+  },
+  flush() { this.say(this.buffer); this.buffer = ""; },
+  cancel() {
+    this.buffer = "";
+    this.queued = 0;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+    this.idleWaiters.splice(0).forEach((fn) => fn());
+  },
+  whenIdle() {
+    return this.queued ? new Promise((r) => this.idleWaiters.push(r)) : Promise.resolve();
+  },
+};
+
+function loadVoices() {
+  if (!("speechSynthesis" in window)) { els.voiceSelect.disabled = true; return; }
+  const voices = speechSynthesis.getVoices();
+  els.voiceSelect.replaceChildren(
+    new Option("Default voice", ""),
+    ...voices.map((v) => new Option(`${v.name} (${v.lang})${v.localService ? "" : " · online"}`, v.name)),
+  );
+  els.voiceSelect.value = state.prefs.voice ?? "";
+}
+if ("speechSynthesis" in window) speechSynthesis.onvoiceschanged = loadVoices;
+els.voiceSelect.onchange = () => savePrefs({ voice: els.voiceSelect.value });
+els.rateInput.oninput = () => savePrefs({ rate: Number(els.rateInput.value) });
+els.testVoice.onclick = () => { speaker.cancel(); speaker.say(`Hi! I'm ${els.title.textContent}. This is how I sound.`); };
+
+// ── Hands-free conversation ──────────────────────────────────
+// Listen → send when you pause → speak the reply → listen again.
+// Say "stop listening" or "goodbye", press the 🗣️ button, or Ctrl+Shift+H to stop.
+const handsFree = { on: false, rec: null };
+const STOP_WORDS = /^(stop listening|stop talking|goodbye|bye|exit|that's all)[.!]?$/i;
+const PAUSE_MS = 1300; // how long a pause means "I'm done talking"
+
+function setHandsFreeUi(mode) {
+  els.talkBtn.classList.toggle("listening", mode === "listening");
+  els.talkBtn.setAttribute("aria-pressed", String(handsFree.on));
+  const label = { listening: "🎙️ Listening… (say “stop listening” to end)", thinking: "💭 Thinking…", speaking: "🔊 Speaking… (press 🗣️ to stop)" }[mode];
+  if (label) els.statusDetail.textContent = label;
+  else renderModels();
+}
+
+function listenOnce() {
+  return new Promise((resolve) => {
+    const rec = new Recognition();
+    rec.lang = navigator.language || "en-US";
+    rec.continuous = true;
+    rec.interimResults = true;
+    handsFree.rec = rec;
+    let finalText = "";
+    let timer = null;
+    const finish = () => { clearTimeout(timer); try { rec.stop(); } catch { /* already stopped */ } };
+    rec.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      els.input.value = (finalText + interim).trim();
+      autoGrow();
+      clearTimeout(timer);
+      timer = setTimeout(finish, PAUSE_MS); // restart the pause timer on every word
+    };
+    rec.onerror = (e) => {
+      if (e.error === "no-speech" || e.error === "aborted") return; // silence: just listen again
+      stopHandsFree();
+      showStatus(false, e.error === "not-allowed" || e.error === "service-not-allowed"
+        ? "Microphone blocked. Allow it in the browser's address bar."
+        : e.error === "network" ? "Voice needs internet (the browser's speech service is online)."
+        : `Voice error: ${e.error}`);
+    };
+    rec.onend = () => { handsFree.rec = null; resolve(finalText.trim()); };
+    rec.start();
+  });
+}
+
+async function handsFreeLoop() {
+  while (handsFree.on) {
+    setHandsFreeUi("listening");
+    const heard = await listenOnce();
+    if (!handsFree.on) break;
+    if (!heard) continue; // silence: just listen again
+    if (STOP_WORDS.test(heard)) { els.input.value = ""; autoGrow(); stopHandsFree(); speaker.say("Okay, talk later."); break; }
+    els.input.value = "";
+    autoGrow();
+    setHandsFreeUi("thinking");
+    let spoke = false;
+    await send(heard, { onText: (t) => { if (!spoke) { spoke = true; setHandsFreeUi("speaking"); } speaker.feed(t); } });
+    speaker.flush();
+    if (!handsFree.on) break;
+    setHandsFreeUi("speaking");
+    await speaker.whenIdle();
+  }
+  setHandsFreeUi(null);
+}
+
+function startHandsFree() {
+  if (!Recognition) {
+    showStatus(false, "Hands-free mode needs Chrome or Edge (speech recognition).");
+    return;
+  }
+  voice.rec?.abort();
+  handsFree.on = true;
+  handsFreeLoop();
+}
+function stopHandsFree() {
+  handsFree.on = false;
+  handsFree.rec?.abort();
+  speaker.cancel();
+  state.controller?.abort();
+  setHandsFreeUi(null);
+}
+els.talkBtn.onclick = () => (handsFree.on ? stopHandsFree() : startHandsFree());
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.shiftKey && e.code === "KeyH") { e.preventDefault(); els.talkBtn.click(); }
+});
+
 // ── Wiring ───────────────────────────────────────────────────
 els.composer.addEventListener("submit", (e) => {
   e.preventDefault();
@@ -493,6 +683,8 @@ els.providerSelect.onchange = () => { renderModels(); savePrefs(); };
 els.modelSelect.onchange = () => savePrefs();
 
 els.polishBtn.setAttribute("aria-pressed", String(state.prefs.polish ?? true));
+els.rateInput.value = String(state.prefs.rate ?? 1);
+loadVoices();
 if (!Recognition) els.micBtn.title = "Voice typing needs Chrome or Edge (or press Win+H)";
 render();
 loadStatus();

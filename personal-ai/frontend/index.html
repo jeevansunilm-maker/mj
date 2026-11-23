@@ -36,13 +36,14 @@
           <div class="empty" id="emptyState">
             <h2>Hi! I'm your personal AI.</h2>
             <p>Ask me anything. Tell me about yourself under <strong>Profile &amp; personality</strong> so I can tailor my answers.</p>
-            <p class="examples">Try: “Remind me to drink water in 30 minutes” · “Draft an email asking for Friday off” · “Set volume to 30” · “Open notepad”</p>
+            <p class="examples">Try: “Remind me to drink water in 30 minutes” · “Draft an email asking for Friday off” · “Set volume to 30” · “Open notepad” · “Add a ₹450 lunch expense to my budget sheet”</p>
           </div>
         </section>
 
         <form class="composer" id="composer">
           <div class="voice">
             <button class="btn icon-btn" id="micBtn" type="button" aria-label="Voice typing (Ctrl+Shift+Space)" title="Voice typing (Ctrl+Shift+Space)">🎤</button>
+            <button class="btn icon-btn" id="talkBtn" type="button" aria-pressed="false" aria-label="Hands-free conversation (Ctrl+Shift+H)" title="Hands-free conversation (Ctrl+Shift+H)">🗣️</button>
             <button class="btn icon-btn" id="polishBtn" type="button" aria-pressed="true" aria-label="Polish dictation with AI" title="Polish dictation: remove ums, fix punctuation">✨</button>
           </div>
           <label class="sr-only" for="input">Message</label>
@@ -65,6 +66,12 @@
         <label>Assistant's personality
           <textarea name="personality" rows="3" maxlength="1000"></textarea>
         </label>
+        <div class="voice-settings">
+          <label>Spoken voice <select id="voiceSelect"></select></label>
+          <label>Speed <input id="rateInput" type="range" min="0.6" max="1.6" step="0.1" value="1" /></label>
+          <button class="btn" id="testVoice" type="button">Test voice</button>
+        </div>
+        <div class="connections" id="connections"></div>
         <div class="dialog-actions">
           <button class="btn" value="cancel" type="submit" formnovalidate>Cancel</button>
           <button class="btn primary" value="save" type="submit">Save</button>

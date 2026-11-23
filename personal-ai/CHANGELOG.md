@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 (2026-11-23)
+
+### Added
+- **Google Sheets:** your AI can look at a spreadsheet's tabs, read cells, add rows, and change cells (changes need Confirm). It uses a Google service account that only sees the sheets you share with it; no new packages. The Profile panel shows the connection and the email to share sheets with.
+- **Hands-free conversation (🗣️ / Ctrl+Shift+H):**
+  - sends when you pause
+  - speaks the reply sentence by sentence
+  - then listens again
+  - "stop listening" or "goodbye" ends it
+- **Spoken voice and speed** settings, with a "Test voice" button.
+
 ## 1.1.0 (2026-11-23)
 
 ### Added

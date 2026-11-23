@@ -5,11 +5,16 @@
 //       result  = what the AI is told happened
 //       display = what the chat window shows (a card)
 import { parseDueAt } from "../reminders.js";
+import { parseSpreadsheetId, sheetUrl } from "../google/sheets.js";
 
 const str = (description, extra = {}) => ({ type: "string", description, ...extra });
 const pct = (description) => ({ type: "integer", minimum: 0, maximum: 100, description });
 
-export function createTools({ reminders, system, apps = {}, pendingActions }) {
+const MAX_READ_ROWS = 200;
+const MAX_READ_COLS = 26;
+const preview = (rows, n = 8) => rows.slice(0, n).map((r) => r.slice(0, 8).map((c) => String(c ?? "")));
+
+export function createTools({ reminders, system, apps = {}, pendingActions, sheets }) {
   const tools = [
     {
       name: "create_reminder",
@@ -74,6 +79,7 @@ export function createTools({ reminders, system, apps = {}, pendingActions }) {
     },
   ];
 
+  if (sheets) tools.push(...sheetTools(sheets, pendingActions));
   if (!system?.supported) return tools;
 
   const appNames = Object.keys(apps);
@@ -180,6 +186,103 @@ export function createTools({ reminders, system, apps = {}, pendingActions }) {
     },
   );
   return tools;
+}
+
+// ── Google Sheets ─────────────────────────────────────────────
+function sheetTools(sheets, pendingActions) {
+  const spreadsheet = str("Google Sheets link (or ID) the user gave", { maxLength: 500 });
+  const cell = { type: "string", maxLength: 5000, description: "Cell value; formulas like =SUM(A1:A5) allowed" };
+  const rowsSchema = (description) => ({
+    type: "array", minItems: 1, maxItems: 500, description,
+    items: { type: "array", maxItems: 50, items: cell },
+  });
+  const shareHint = `The sheet must be shared with ${sheets.clientEmail} (Editor).`;
+
+  return [
+    {
+      name: "sheets_info",
+      description: `Get a Google Sheet's title and its tab names and sizes. Use first when you don't know the tab names. ${shareHint}`,
+      parameters: { type: "object", properties: { spreadsheet }, required: ["spreadsheet"] },
+      async run({ spreadsheet: s }) {
+        const id = parseSpreadsheetId(s);
+        const info = await sheets.info(id);
+        return {
+          result: info,
+          display: { kind: "sheet", icon: "📊", text: `Opened “${info.title}” · tabs: ${info.tabs.map((t) => t.name).join(", ")}`, url: sheetUrl(id) },
+        };
+      },
+    },
+    {
+      name: "sheets_read",
+      description:
+        "Read cells from a Google Sheet. range uses A1 notation with the tab name, e.g. 'Sheet1!A1:F50' " +
+        `or just 'Sheet1' for the whole tab. Returns at most ${MAX_READ_ROWS} rows. ${shareHint}`,
+      parameters: {
+        type: "object",
+        properties: { spreadsheet, range: str("A1 range, e.g. 'Budget!A1:D100' or 'Budget'", { maxLength: 200 }) },
+        required: ["spreadsheet", "range"],
+      },
+      async run({ spreadsheet: s, range }) {
+        const id = parseSpreadsheetId(s);
+        const { range: got, values } = await sheets.read(id, range);
+        const rows = values.slice(0, MAX_READ_ROWS).map((r) => r.slice(0, MAX_READ_COLS));
+        const truncated = values.length > rows.length || values.some((r) => r.length > MAX_READ_COLS);
+        return {
+          result: { range: got, rows, ...(truncated ? { note: `Showing first ${MAX_READ_ROWS} rows / ${MAX_READ_COLS} columns only; read a smaller range for more.` } : {}) },
+          display: { kind: "sheet", icon: "📖", text: `Read ${got} (${values.length} rows)`, rows: preview(rows), url: sheetUrl(id) },
+        };
+      },
+    },
+    {
+      name: "sheets_append_rows",
+      description:
+        "Add new rows at the bottom of a table in a Google Sheet (doesn't change existing cells). " +
+        `tab is the tab name, e.g. 'Expenses'. Read the header row first so the columns line up. ${shareHint}`,
+      parameters: {
+        type: "object",
+        properties: {
+          spreadsheet,
+          tab: str("Tab name (optionally with columns, e.g. 'Expenses!A:D')", { maxLength: 200 }),
+          rows: rowsSchema("Rows to add; each row is a list of cell values, left to right"),
+        },
+        required: ["spreadsheet", "tab", "rows"],
+      },
+      async run({ spreadsheet: s, tab, rows }) {
+        const id = parseSpreadsheetId(s);
+        const r = await sheets.append(id, tab, rows);
+        return {
+          result: r,
+          display: { kind: "sheet", icon: "➕", text: `Added ${r.updatedRows} row(s) to ${r.updatedRange ?? tab}`, rows: preview(rows), url: sheetUrl(id) },
+        };
+      },
+    },
+    {
+      name: "sheets_update_cells",
+      description:
+        "Overwrite existing cells in a Google Sheet, e.g. range 'Budget!B2:C3' with values [[...],[...]]. " +
+        "This replaces what's there, so the user must click Confirm first. Tell them to click it. " +
+        `To add new rows use sheets_append_rows instead. ${shareHint}`,
+      parameters: {
+        type: "object",
+        properties: {
+          spreadsheet,
+          range: str("Exact A1 range to overwrite, with tab name", { maxLength: 200 }),
+          values: rowsSchema("New values, row by row, matching the range's shape"),
+        },
+        required: ["spreadsheet", "range", "values"],
+      },
+      async run({ spreadsheet: s, range, values }) {
+        const id = parseSpreadsheetId(s);
+        const cells = values.reduce((n, r) => n + r.length, 0);
+        const label = `Overwrite ${range} in your Google Sheet (${cells} cell${cells === 1 ? "" : "s"})`;
+        const actionId = pendingActions.create(label, () => sheets.update(id, range, values));
+        return {
+          result: { status: "waiting_for_user_confirmation", note: "Ask the user to click Confirm in the chat." },
+          display: { kind: "confirm", id: actionId, text: label, rows: preview(values), url: sheetUrl(id) },
+        };
+      },
+    },
+  ];
 }
 
 /** Short note added to the chat history so the AI remembers what it did. */

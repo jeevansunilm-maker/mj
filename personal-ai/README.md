@@ -41,10 +41,22 @@ Your own AI assistant that runs on your Windows PC. It chats, remembers who you 
 | "Make the screen dimmer" | Changes brightness (built-in laptop screens only) |
 | "Open notepad" / "open Spotify" | Opens apps from your allow-list |
 | "Search the web for cheap flights to Goa" | Opens Google in your browser. On Claude, it can also read the results and answer |
+| "Add a ₹450 lunch to my budget sheet" (paste the sheet link once) | Reads the sheet's columns and adds a row. Changing existing cells needs **Confirm** |
+| "What did I spend on rent this month?" + sheet link | Reads the sheet and answers |
 | "Lock my PC" | Locks immediately |
 | "Shut down" / "restart" / "sleep" | Shows a **Confirm** button first. Shutdown and restart wait 30 seconds; run `shutdown /a` to cancel |
 
 You can also manage reminders yourself with the **⏰ Reminders** button.
+
+## Hands-free conversation
+
+Click **🗣️**, or press **Ctrl+Shift+H**, then just talk.
+
+1. When you pause, your message is sent.
+2. Your AI **speaks the answer** and then listens again.
+3. To stop, say **"stop listening"** or **"goodbye"**, or click 🗣️.
+
+Choose the spoken voice and speed in **Profile & personality → Spoken voice**. Windows voices such as *Microsoft Zira* or *David* work offline. Voices marked "online" sound more natural but need internet. Use Chrome or Edge.
 
 ## Voice typing (like Wispr Flow)
 
@@ -52,6 +64,22 @@ You can also manage reminders yourself with the **⏰ Reminders** button.
 - With **✨** on, your AI cleans up what you said: it removes "um"s and false starts and fixes punctuation.
 - Voice typing uses the browser's speech recognition, so use **Chrome or Edge**. Note that the browser sends the audio to its speech service (Google or Microsoft) to turn it into text.
 - To dictate in any app, Windows has its own voice typing: press **Win+H**.
+
+## Google Sheets
+
+Your AI uses a Google **service account**: a "robot" Google account that can only open the sheets **you share with it**. Setup takes about 5 minutes, one time:
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a project, for example *Personal AI*.
+2. Open **APIs & Services → Library**, search **Google Sheets API**, and click **Enable**.
+3. Open **IAM & Admin → Service Accounts → Create service account**. Name it `personal-ai`, click **Done**, and skip the roles.
+4. Click the new account, then **Keys → Add key → Create new key → JSON**. A file downloads.
+5. Rename that file to `google-service-account.json` and move it into the `personal-ai\data\` folder.
+6. Restart the app. **Profile & personality** should now show *Google Sheets: connected ✓* and the robot's email (`…@….iam.gserviceaccount.com`).
+7. In any sheet you want your AI to use, click **Share**, paste that email, and choose **Editor**.
+
+Then paste the sheet's link in the chat: *"Add today's lunch, 450, to https://docs.google.com/spreadsheets/d/…"*. Tip: put your main sheet's link in **About you**, for example *"My budget sheet: https://…"*, so you never have to paste it again.
+
+Your AI can read cells, add rows, and change cells. Changing existing cells always asks you to **Confirm** first. Keep the key file private: it lives in `data\`, which is never committed to git.
 
 ## Your apps
 
@@ -79,6 +107,7 @@ Any Ollama model can chat. To use **actions**, the model needs tool support:
 | Profile | `data/profile.json` |
 | Reminders | `data/reminders.json` |
 | Your apps | `data/apps.json` |
+| Google key (secret) | `data/google-service-account.json` |
 | Settings and API key | `.env` (never commit it) |
 
 The app listens on `127.0.0.1` only, so other devices on your network can't open it. It also refuses requests from other websites open in your browser, so a web page can't control your PC through it. Open it as `http://localhost:3000` or `http://127.0.0.1:3000`.

@@ -13,7 +13,10 @@ const POLISH_PROMPT =
   "repeated words. Fix punctuation, capitalisation and obvious transcription mistakes. Keep the " +
   "speaker's meaning, words and tone; do not add anything. Reply with only the cleaned text.";
 
-export function createApp({ config, providers, profileStore, tools = [], reminders, events, pendingActions, now = () => new Date() }) {
+export function createApp({
+  config, providers, profileStore, tools = [], reminders, events, pendingActions,
+  integrations = { googleSheets: { connected: false } }, now = () => new Date(),
+}) {
   const app = express();
   app.disable("x-powered-by");
   app.use(securityMiddleware({ extraHosts: config.allowedHosts }));
@@ -36,7 +39,7 @@ export function createApp({ config, providers, profileStore, tools = [], reminde
     const list = await Promise.all(
       [...providers.values()].map(async (p) => ({ id: p.id, label: p.label, ...(await p.status()) })),
     );
-    res.json({ defaultProvider: config.defaultProvider, providers: list, tools: tools.map((t) => t.name) });
+    res.json({ defaultProvider: config.defaultProvider, providers: list, tools: tools.map((t) => t.name), integrations });
   });
 
   app.get("/api/profile", async (_req, res) => res.json(await profileStore.get()));

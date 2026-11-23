@@ -15,6 +15,8 @@ export function loadConfig(env = process.env) {
     defaultProvider: env.AI_PROVIDER ?? "ollama", // "ollama" (local) or "claude" (cloud)
     dataDir: env.DATA_DIR ?? path.join(ROOT_DIR, "data"),
     frontendDir: path.join(ROOT_DIR, "frontend"),
+    // Google Sheets: path to the service-account key (see README → Google Sheets)
+    googleKeyFile: env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(env.DATA_DIR ?? path.join(ROOT_DIR, "data"), "google-service-account.json"),
     ollama: {
       baseUrl: (env.OLLAMA_URL ?? "http://127.0.0.1:11434").replace(/\/+$/, ""),
       model: env.OLLAMA_MODEL ?? "llama3.2",

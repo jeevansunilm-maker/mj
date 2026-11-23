@@ -112,8 +112,71 @@ export function fakeSystem() {
   };
 }
 
+/**
+ * A fake Google: token endpoint (verifies the signed JWT with the public key)
+ * plus the Sheets v4 endpoints we use, backed by an in-memory grid.
+ * shared: spreadsheet IDs the robot may open (others get 403).
+ */
+export async function startFakeGoogle({ shared = [], tabs = { Sheet1: [["Date", "Item", "Amount"], ["2026-11-01", "Rent", "15000"]] } } = {}) {
+  const { generateKeyPairSync, createVerify } = await import("node:crypto");
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const requests = [];
+  const grid = structuredClone(tabs);
+  const server = http.createServer(async (req, res) => {
+    let body = "";
+    for await (const c of req) body += c;
+    const url = new URL(req.url, "http://x");
+    requests.push({ method: req.method, path: decodeURIComponent(url.pathname), query: Object.fromEntries(url.searchParams), body, auth: req.headers.authorization });
+    const json = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
+
+    if (url.pathname === "/token") {
+      const assertion = new URLSearchParams(body).get("assertion") ?? "";
+      const [h, c, sig] = assertion.split(".");
+      const v = createVerify("RSA-SHA256"); v.update(`${h}.${c}`);
+      const claims = JSON.parse(Buffer.from(c ?? "", "base64url").toString() || "{}");
+      if (!sig || !v.verify(publicKey, Buffer.from(sig, "base64url")) || claims.scope !== "https://www.googleapis.com/auth/spreadsheets") {
+        return json(400, { error: "invalid_grant", error_description: "Invalid JWT Signature." });
+      }
+      return json(200, { access_token: "tok-123", expires_in: 3600, token_type: "Bearer" });
+    }
+    if (req.headers.authorization !== "Bearer tok-123") return json(401, { error: { message: "no auth" } });
+    const m = decodeURIComponent(url.pathname).match(/^\/v4\/spreadsheets\/([^/]+)(?:\/values\/(.+))?$/);
+    if (!m) return json(404, { error: { message: "not found" } });
+    const [, id, rangeRaw] = m;
+    if (!shared.includes(id)) return json(403, { error: { message: "The caller does not have permission" } });
+    if (!rangeRaw) {
+      return json(200, { properties: { title: "Budget 2026" }, sheets: Object.entries(grid).map(([title, rows]) => ({ properties: { title, gridProperties: { rowCount: 1000, columnCount: 26 } } })) });
+    }
+    const append = rangeRaw.endsWith(":append");
+    const range = append ? rangeRaw.slice(0, -7) : rangeRaw;
+    const tab = range.split("!")[0];
+    if (!grid[tab]) return json(400, { error: { message: `Unable to parse range: ${range}` } });
+    if (req.method === "GET") return json(200, { range: `${tab}!A1:C${grid[tab].length}`, values: grid[tab] });
+    const values = JSON.parse(body).values;
+    if (append) {
+      const start = grid[tab].length + 1;
+      grid[tab].push(...values);
+      return json(200, { updates: { updatedRange: `${tab}!A${start}:C${grid[tab].length}`, updatedRows: values.length } });
+    }
+    // PUT: only supports "Tab!B2"-style top-left anchors for the test
+    const [, col, row] = range.split("!")[1].match(/^([A-Z])(\d+)/);
+    values.forEach((r, i) => r.forEach((v, j) => {
+      const rr = Number(row) - 1 + i, cc = col.charCodeAt(0) - 65 + j;
+      grid[tab][rr] ??= []; grid[tab][rr][cc] = v;
+    }));
+    return json(200, { updatedRange: range, updatedCells: values.flat().length });
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  return {
+    base, grid, requests,
+    account: { clientEmail: "my-ai@demo.iam.gserviceaccount.com", privateKey: privateKey.export({ type: "pkcs8", format: "pem" }), tokenUri: `${base}/token` },
+    close: () => new Promise((r) => server.close(r)),
+  };
+}
+
 /** Builds a full app with fakes and starts it on a random port. */
-export async function startTestApp({ ollamaOptions = {}, claudeOptions = {}, system = fakeSystem(), now } = {}) {
+export async function startTestApp({ ollamaOptions = {}, claudeOptions = {}, system = fakeSystem(), now, sheets = null } = {}) {
   const { createApp } = await import("../src/app.js");
   const { loadConfig } = await import("../src/config.js");
   const { createProfileStore } = await import("../src/profileStore.js");
@@ -132,10 +195,11 @@ export async function startTestApp({ ollamaOptions = {}, claudeOptions = {}, sys
   const events = createEventHub();
   const reminders = createReminderStore(config.dataDir);
   const pendingActions = createPendingActions();
-  const tools = createTools({ reminders, system, apps: DEFAULT_WINDOWS_APPS, pendingActions });
+  const tools = createTools({ reminders, system, apps: DEFAULT_WINDOWS_APPS, pendingActions, sheets });
   const app = createApp({
     config, providers, profileStore: createProfileStore(config.dataDir), tools, reminders, events, pendingActions,
     ...(now ? { now } : {}),
+    ...(sheets ? { integrations: { googleSheets: { connected: true, email: sheets.clientEmail } } } : {}),
   });
   const server = app.listen(0, "127.0.0.1");
   await new Promise((r) => server.once("listening", r));

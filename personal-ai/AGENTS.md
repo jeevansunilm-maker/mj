@@ -10,7 +10,7 @@ A personal AI chat assistant that runs on the user's own computer.
 - **Backend:** Node.js (ESM, no TypeScript, no build step) + Express 5, in `backend/src/`.
 - **Frontend:** plain HTML/CSS/JS in `frontend/`, no framework and no bundler. The backend serves it.
 - **AI providers:** Ollama (local, the default) and Claude (cloud, optional), in `backend/src/providers/`.
-- **Tools (actions):** reminders, email drafts, and on Windows: volume, brightness, power, apps and websites. They live in `backend/src/tools/` and `backend/src/system/`.
+- **Tools (actions):** reminders, email drafts, Google Sheets (service account, `backend/src/google/`), and on Windows: volume, brightness, power, apps and websites. They live in `backend/src/tools/` and `backend/src/system/`.
 - **Target OS:** the user runs **Windows**. PC-control code is Windows-only and is hidden on other systems.
 
 ## Commands
@@ -41,6 +41,8 @@ backend/src/tools/validate.js  validates every tool input before it runs
 backend/src/tools/executor.js  runs a tool call, turns failures into error results for the AI
 backend/src/system/windows.js  PowerShell/shutdown.exe/rundll32 wrappers (values passed via env vars)
 backend/src/system/index.js    picks the OS module; loads the app allow-list (data/apps.json)
+backend/src/google/            serviceAccount.js (JWT → access token, node:crypto) + sheets.js (Sheets v4 via fetch)
+backend/src/security.js        Host allow-list (DNS rebinding), cross-site POST block, security headers
 backend/src/providers/
   index.js                     provider registry
   ollama.js                    local models via Ollama's /api/chat (NDJSON stream)
@@ -48,7 +50,7 @@ backend/src/providers/
   errors.js                    ProviderError = an error message safe to show users
 backend/test/                  node:test tests; helpers.js has a fake Ollama server, a fake Claude client,
                                a fake Windows PC (fakeSystem) and startTestApp() to wire them together
-frontend/index.html|styles.css|app.js
+frontend/index.html|styles.css|app.js   (chat, action cards, reminders, 🎤 dictation, 🗣️ hands-free voice loop)
 docs/HOW-AI-WORKS.md           beginner explanation of how the AI works
 ```
 
@@ -84,7 +86,8 @@ Every provider in `backend/src/providers/` returns an object with:
 - Anything destructive or hard to undo (shutdown, restart, sleep, deleting or sending things) must use `pendingActions.create(...)` and show a `confirm` card. Never run it directly.
 - Never build shell commands by joining strings. Use `execFile`/`spawn` with argument arrays, and pass values to PowerShell through environment variables.
 - Apps come only from the allow-list. URLs must be http(s).
-- Email is draft-only. Sending email or editing Google Sheets needs the user's explicit OK and OAuth set up by the user.
+- Email is draft-only. Sending email needs the user's explicit OK.
+- Google Sheets: reading and appending run directly. Overwriting cells (`sheets_update_cells`) goes through Confirm. Never log or return the service-account key.
 
 ## Rules
 

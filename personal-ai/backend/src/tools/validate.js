@@ -1,7 +1,7 @@
 // Tiny JSON-schema checker for tool inputs. AI models sometimes send wrong or
 // missing arguments, so every tool input is checked before anything runs.
-// Supports: type object/string/integer/number/boolean, properties, required,
-// enum, minimum, maximum, maxLength.
+// Supports: type object/array/string/integer/number/boolean, properties,
+// required, items, maxItems, enum, minimum, maximum, maxLength.
 
 export class ToolInputError extends Error {}
 
@@ -19,7 +19,19 @@ export function validate(schema, input, path = "input") {
     }
     return out;
   }
+  if (schema.type === "array") {
+    if (!Array.isArray(input)) throw new ToolInputError(`${path} must be a list`);
+    if (schema.maxItems !== undefined && input.length > schema.maxItems) {
+      throw new ToolInputError(`${path} has too many items (max ${schema.maxItems})`);
+    }
+    if (schema.minItems !== undefined && input.length < schema.minItems) {
+      throw new ToolInputError(`${path} needs at least ${schema.minItems} item(s)`);
+    }
+    return input.map((item, i) => (schema.items ? validate(schema.items, item, `${path}[${i}]`) : item));
+  }
   let value = input;
+  // Spreadsheet cells etc.: accept numbers/booleans where text is expected.
+  if (schema.type === "string" && (typeof value === "number" || typeof value === "boolean")) value = String(value);
   // Small local models often send numbers as strings ("40"); accept that.
   if ((schema.type === "integer" || schema.type === "number") && typeof value === "string" && value.trim() !== "") {
     value = Number(value);

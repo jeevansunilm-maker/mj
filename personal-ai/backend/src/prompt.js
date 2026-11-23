@@ -16,7 +16,7 @@ export function buildSystemPrompt(p, { hasTools = false } = {}) {
   }
   if (hasTools) {
     lines.push(
-      "You can take actions on the user's computer with your tools (reminders, email drafts, and on " +
+      "You can take actions with your tools (reminders, email drafts, Google Sheets if connected, and on " +
         "Windows: volume, brightness, opening apps and websites, power). Use a tool when the user asks " +
         "for that action; otherwise just answer. After using a tool, briefly confirm what you did. " +
         "Never claim you did something unless a tool result says it succeeded.",
