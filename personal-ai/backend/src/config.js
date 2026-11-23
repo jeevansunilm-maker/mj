@@ -10,6 +10,8 @@ export function loadConfig(env = process.env) {
   return {
     port: Number(env.PORT ?? 3000),
     host: env.HOST ?? "127.0.0.1", // localhost only — not exposed to your network
+    // Extra host names allowed to open the app (advanced; e.g. a LAN name). Comma-separated.
+    allowedHosts: (env.ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim()).filter(Boolean),
     defaultProvider: env.AI_PROVIDER ?? "ollama", // "ollama" (local) or "claude" (cloud)
     dataDir: env.DATA_DIR ?? path.join(ROOT_DIR, "data"),
     frontendDir: path.join(ROOT_DIR, "frontend"),

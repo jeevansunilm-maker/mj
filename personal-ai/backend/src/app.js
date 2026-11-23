@@ -4,6 +4,7 @@ import express from "express";
 import { buildSystemPrompt, cleanMessages, withCurrentTime } from "./prompt.js";
 import { ProviderError, isAbortError } from "./providers/errors.js";
 import { parseDueAt } from "./reminders.js";
+import { securityMiddleware } from "./security.js";
 import { createToolExecutor } from "./tools/executor.js";
 import { describeAction } from "./tools/index.js";
 
@@ -14,6 +15,8 @@ const POLISH_PROMPT =
 
 export function createApp({ config, providers, profileStore, tools = [], reminders, events, pendingActions, now = () => new Date() }) {
   const app = express();
+  app.disable("x-powered-by");
+  app.use(securityMiddleware({ extraHosts: config.allowedHosts }));
   app.use(express.json({ limit: "2mb" }));
   app.use(express.static(config.frontendDir));
   const executeTool = createToolExecutor(tools);

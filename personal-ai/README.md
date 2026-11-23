@@ -81,7 +81,7 @@ Any Ollama model can chat. To use **actions**, the model needs tool support:
 | Your apps | `data/apps.json` |
 | Settings and API key | `.env` (never commit it) |
 
-The app listens on `127.0.0.1` only, so other devices on your network can't open it.
+The app listens on `127.0.0.1` only, so other devices on your network can't open it. It also refuses requests from other websites open in your browser, so a web page can't control your PC through it. Open it as `http://localhost:3000` or `http://127.0.0.1:3000`.
 
 ## Commands
 
@@ -114,6 +114,27 @@ personal-ai/
 ├── AGENTS.md                instructions for Codex and other coding agents
 └── CLAUDE.md                instructions for Claude Code (points to AGENTS.md)
 ```
+
+## Updating and rolling back
+
+Before updating, back up the `data\` folder (profile, reminders, apps). Then update the code:
+
+```bat
+git pull
+npm install
+npm start
+```
+
+If something breaks, go back to the last version that worked:
+
+```bat
+git log --oneline            :: find the last good commit
+git checkout <commit> -- .   :: restore that version of the code
+npm install
+npm start
+```
+
+Your `data\` files and browser chats keep working across versions. Older saved chats are still readable, and `data\reminders.json` didn't exist before 1.1.0, so older versions just ignore it. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Building on it with Codex or Claude Code
 
