@@ -17,6 +17,19 @@ export function loadConfig(env = process.env) {
     frontendDir: path.join(ROOT_DIR, "frontend"),
     // Google Sheets: path to the service-account key (see README → Google Sheets)
     googleKeyFile: env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(env.DATA_DIR ?? path.join(ROOT_DIR, "data"), "google-service-account.json"),
+    elevenlabs: {
+      apiKey: env.ELEVENLABS_API_KEY ?? "",
+      voiceId: env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM", // "Rachel", a built-in voice
+      modelId: env.ELEVENLABS_MODEL || "eleven_flash_v2_5", // fast + multilingual
+    },
+    telegram: {
+      token: env.TELEGRAM_BOT_TOKEN ?? "",
+      allowedUsers: (env.TELEGRAM_ALLOWED_USERS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+    },
+    discord: {
+      token: env.DISCORD_BOT_TOKEN ?? "",
+      allowedUsers: (env.DISCORD_ALLOWED_USERS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+    },
     ollama: {
       baseUrl: (env.OLLAMA_URL ?? "http://127.0.0.1:11434").replace(/\/+$/, ""),
       model: env.OLLAMA_MODEL ?? "llama3.2",

@@ -10,6 +10,10 @@ import { createSystem, loadApps } from "./system/index.js";
 import { createTools } from "./tools/index.js";
 import { createTokenProvider, loadServiceAccount } from "./google/serviceAccount.js";
 import { createSheetsClient } from "./google/sheets.js";
+import { createChatEngine } from "./chatEngine.js";
+import { createElevenLabs } from "./voice/elevenlabs.js";
+import { startTelegramBot } from "./bots/telegram.js";
+import { startDiscordBot } from "./bots/discord.js";
 
 const config = loadConfig();
 const providers = createProviders(config);
@@ -30,15 +34,35 @@ const tools = createTools({ reminders, system, apps, pendingActions, sheets });
 
 startReminderScheduler({ store: reminders, events, notify: (t, b) => system.notify(t, b) });
 
+const profileStore = createProfileStore(config.dataDir);
+const engine = createChatEngine({ config, providers, profileStore, tools });
+const tts = createElevenLabs(config.elevenlabs);
+
+// Chat-app bots start only when their token is set in .env.
+const bots = [];
+if (config.telegram.token) {
+  bots.push(startTelegramBot({ ...config.telegram, engine, pendingActions }));
+}
+if (config.discord.token) {
+  bots.push(startDiscordBot({ ...config.discord, engine, pendingActions }));
+}
+
 const app = createApp({
   config,
   providers,
-  profileStore: createProfileStore(config.dataDir),
+  profileStore,
   tools,
   reminders,
   events,
   pendingActions,
-  integrations: { googleSheets: sheets ? { connected: true, email: sheets.clientEmail } : { connected: false, problem: sheetsProblem } },
+  engine,
+  tts,
+  integrations: {
+    googleSheets: sheets ? { connected: true, email: sheets.clientEmail } : { connected: false, problem: sheetsProblem },
+    elevenlabs: { connected: Boolean(tts), voiceId: tts?.defaultVoiceId },
+    telegram: { connected: Boolean(config.telegram.token), allowedUsers: config.telegram.allowedUsers.length },
+    discord: { connected: Boolean(config.discord.token), allowedUsers: config.discord.allowedUsers.length },
+  },
 });
 
 app.listen(config.port, config.host, async () => {
@@ -53,6 +77,12 @@ app.listen(config.port, config.host, async () => {
       ? `  ✔ Google Sheets: share your sheets with ${sheets.clientEmail}`
       : `  ✘ Google Sheets: ${sheetsProblem || "not set up (see README → Google Sheets)"}`,
   );
+  console.log(tts ? `  ✔ ElevenLabs voice (${config.elevenlabs.modelId})` : "  ✘ ElevenLabs: add ELEVENLABS_API_KEY to .env for natural voices");
+  for (const [name, c] of [["Telegram", config.telegram], ["Discord", config.discord]]) {
+    if (!c.token) console.log(`  ✘ ${name} bot: not set up (see README)`);
+    else if (!c.allowedUsers.length) console.log(`  ⚠ ${name} bot: running, but nobody is allowed yet. Message it to get your user ID.`);
+    else console.log(`  ✔ ${name} bot: ${c.allowedUsers.length} allowed user(s)`);
+  }
   if (!system.supported) console.log(`  (PC controls are Windows-only; this is ${system.os})`);
   console.log(`  Default provider: ${config.defaultProvider}   (change with AI_PROVIDER in .env)\n`);
 });

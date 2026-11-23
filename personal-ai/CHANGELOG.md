@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.0 (2026-11-23)
+
+### Added
+- **ElevenLabs voices:** pick a natural voice (including your own cloned voices) in Spoken voice. Replies are spoken sentence by sentence, with the next sentence downloaded while the current one plays. If ElevenLabs fails, the PC voice takes over.
+- **Telegram bot:**
+  - message your AI from your phone, with no public URL needed
+  - Confirm/Cancel buttons for risky actions
+  - `/new` starts a fresh conversation
+- **Discord bot:**
+  - answers DMs and @mentions
+  - Confirm/Cancel buttons
+  - uses no privileged intents
+- Both bots answer only allow-listed user IDs.
+- The Profile panel shows the status of every connection.
+
+### Changed
+- Requires Node.js 22+ (uses the built-in WebSocket).
+- Chat logic moved into `chatEngine.js`, shared by the web app and the bots.
+
 ## 1.2.0 (2026-11-23)
 
 ### Added

@@ -17,7 +17,7 @@ A personal AI chat assistant that runs on the user's own computer.
 
 | Task | Command |
 |---|---|
-| Install | `npm install` |
+| Install (Node 22+) | `npm install` |
 | Run | `npm start` → http://localhost:3000 |
 | Run with auto-reload | `npm run dev` |
 | Test (offline, no API key, Ollama or Windows needed) | `npm test` |
@@ -43,6 +43,9 @@ backend/src/system/windows.js  PowerShell/shutdown.exe/rundll32 wrappers (values
 backend/src/system/index.js    picks the OS module; loads the app allow-list (data/apps.json)
 backend/src/google/            serviceAccount.js (JWT → access token, node:crypto) + sheets.js (Sheets v4 via fetch)
 backend/src/security.js        Host allow-list (DNS rebinding), cross-site POST block, security headers
+backend/src/chatEngine.js      the single conversation turn used by the web app AND the bots
+backend/src/voice/elevenlabs.js  ElevenLabs TTS (fetch); /api/tts returns audio, key never leaves the server
+backend/src/bots/              telegram.js (long polling), discord.js (Gateway via Node's WebSocket), brain.js
 backend/src/providers/
   index.js                     provider registry
   ollama.js                    local models via Ollama's /api/chat (NDJSON stream)
@@ -87,6 +90,7 @@ Every provider in `backend/src/providers/` returns an object with:
 - Never build shell commands by joining strings. Use `execFile`/`spawn` with argument arrays, and pass values to PowerShell through environment variables.
 - Apps come only from the allow-list. URLs must be http(s).
 - Email is draft-only. Sending email needs the user's explicit OK.
+- Bots (Telegram/Discord) must only answer user IDs in *_ALLOWED_USERS. Strangers get their ID and nothing else, and never reach the AI. Confirm buttons check the user too.
 - Google Sheets: reading and appending run directly. Overwriting cells (`sheets_update_cells`) goes through Confirm. Never log or return the service-account key.
 
 ## Rules

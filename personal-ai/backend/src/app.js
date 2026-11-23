@@ -1,12 +1,11 @@
 // Builds the Express app. Kept separate from server.js so tests can create
 // an app with fake providers, a fake PC, and no real network calls.
 import express from "express";
-import { buildSystemPrompt, cleanMessages, withCurrentTime } from "./prompt.js";
+import { createChatEngine } from "./chatEngine.js";
+import { cleanMessages } from "./prompt.js";
 import { ProviderError, isAbortError } from "./providers/errors.js";
 import { parseDueAt } from "./reminders.js";
 import { securityMiddleware } from "./security.js";
-import { createToolExecutor } from "./tools/executor.js";
-import { describeAction } from "./tools/index.js";
 
 const POLISH_PROMPT =
   "You clean up dictated speech. Remove filler words (um, uh, like, you know), false starts and " +
@@ -16,13 +15,13 @@ const POLISH_PROMPT =
 export function createApp({
   config, providers, profileStore, tools = [], reminders, events, pendingActions,
   integrations = { googleSheets: { connected: false } }, now = () => new Date(),
+  engine = createChatEngine({ config, providers, profileStore, tools, now }), tts = null,
 }) {
   const app = express();
   app.disable("x-powered-by");
   app.use(securityMiddleware({ extraHosts: config.allowedHosts }));
   app.use(express.json({ limit: "2mb" }));
   app.use(express.static(config.frontendDir));
-  const executeTool = createToolExecutor(tools);
 
   function pickProvider(req, res) {
     const id = req.body?.provider ?? config.defaultProvider;
@@ -69,19 +68,8 @@ export function createApp({
     });
 
     try {
-      const system = buildSystemPrompt(await profileStore.get(), { hasTools: tools.length > 0 });
-      for await (const event of provider.run({
-        system,
-        messages: withCurrentTime(messages, now()),
-        model: modelOf(req),
-        tools,
-        executeTool,
-        signal: controller.signal,
-      })) {
-        if (event.type === "text") send({ type: "text", text: event.text });
-        else if (event.type === "tool") {
-          send({ type: "tool", name: event.name, isError: event.isError, display: event.display, note: describeAction(event) });
-        }
+      for await (const event of engine.chat({ providerId: provider.id, model: modelOf(req), messages, signal: controller.signal })) {
+        send(event);
       }
       send({ type: "done" });
     } catch (err) {
@@ -106,6 +94,30 @@ export function createApp({
       res.json({ text: out.trim() || text });
     } catch (err) {
       res.status(502).json({ error: err instanceof ProviderError ? err.message : "Couldn't polish the text." });
+    }
+  });
+
+  // ── Voice: ElevenLabs text-to-speech ─────────────────────
+  app.get("/api/voices", async (_req, res) => {
+    if (!tts) return res.json({ connected: false, voices: [] });
+    try {
+      res.json({ connected: true, defaultVoiceId: tts.defaultVoiceId, voices: await tts.voices() });
+    } catch (err) {
+      res.status(502).json({ connected: true, error: err.message, voices: [] });
+    }
+  });
+
+  app.post("/api/tts", async (req, res) => {
+    if (!tts) return res.status(503).json({ error: "ElevenLabs isn't set up. Add ELEVENLABS_API_KEY to .env." });
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+    if (!text) return res.status(400).json({ error: "text is required" });
+    try {
+      const { audio, contentType } = await tts.speak(text, typeof req.body?.voiceId === "string" ? req.body.voiceId : undefined);
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "no-store");
+      res.end(audio);
+    } catch (err) {
+      res.status(502).json({ error: err.message });
     }
   });
 

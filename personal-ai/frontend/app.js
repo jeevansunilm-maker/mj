@@ -190,7 +190,9 @@ async function loadStatus() {
   try {
     const data = await (await fetch("/api/status")).json();
     state.providers = data.providers;
+    state.integrations = data.integrations ?? {};
     renderConnections(data.integrations);
+    loadVoices();
     const preferred = state.prefs.provider ?? data.defaultProvider;
     els.providerSelect.replaceChildren(
       ...data.providers.map((p) => new Option(`${p.label}${p.available ? "" : " — off"}`, p.id)),
@@ -328,24 +330,33 @@ function setBusy(busy) {
 
 // ── Connections (Google Sheets) ──────────────────────────────
 function renderConnections(integrations = {}) {
-  const g = integrations.googleSheets ?? {};
   const box = $("connections");
+  const line = (ok, label, detail) => h("div", {}, `${ok ? "✅" : "⚪"} `, h("strong", {}, label), detail ? ` · ${detail}` : "");
+  const g = integrations.googleSheets ?? {};
+  const el = integrations.elevenlabs ?? {};
+  const tg = integrations.telegram ?? {};
+  const dc = integrations.discord ?? {};
+  const bot = (b) => !b.connected ? "not set up (see README)"
+    : b.allowedUsers ? `on · ${b.allowedUsers} allowed user(s)` : "on · nobody allowed yet: message the bot to get your ID";
+  const parts = [
+    h("strong", {}, "Connections"),
+    line(el.connected, "ElevenLabs voice", el.connected ? "natural voices available in Spoken voice" : "add ELEVENLABS_API_KEY to .env"),
+    line(tg.connected && tg.allowedUsers > 0, "Telegram", bot(tg)),
+    line(dc.connected && dc.allowedUsers > 0, "Discord", bot(dc)),
+  ];
   if (!g.connected) {
-    box.replaceChildren(
-      h("strong", {}, "Google Sheets: "),
-      g.problem ? `⚠️ ${g.problem}` : "not set up. See README → Google Sheets.",
+    parts.push(line(false, "Google Sheets", g.problem ? `⚠️ ${g.problem}` : "not set up (see README → Google Sheets)"));
+  } else {
+    const copy = h("button", { class: "btn icon-btn", type: "button" }, "Copy");
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(g.email); copy.textContent = "Copied ✓"; } catch { copy.textContent = "Copy failed"; }
+    };
+    parts.push(
+      line(true, "Google Sheets", "share a sheet with this email (Editor) to let your AI use it:"),
+      h("div", { class: "row" }, h("code", {}, g.email), copy),
     );
-    return;
   }
-  const copy = h("button", { class: "btn icon-btn", type: "button" }, "Copy");
-  copy.onclick = async () => {
-    try { await navigator.clipboard.writeText(g.email); copy.textContent = "Copied ✓"; } catch { copy.textContent = "Copy failed"; }
-  };
-  box.replaceChildren(
-    h("strong", {}, "Google Sheets: connected ✓"),
-    h("div", {}, "To let your AI use a sheet, click Share in Google Sheets and add this email as an Editor:"),
-    h("div", { class: "row" }, h("code", {}, g.email), copy),
-  );
+  box.replaceChildren(...parts);
 }
 
 // ── Profile ──────────────────────────────────────────────────
@@ -512,29 +523,78 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Speaking replies aloud ───────────────────────────────────
-// Uses the voices installed in Windows / your browser (speechSynthesis).
-// Text is spoken sentence by sentence as it streams in, so it starts quickly.
+// Two voice engines:
+//   "el:<id>"  ElevenLabs (natural, online, needs ELEVENLABS_API_KEY on the server)
+//   "pc:<name>" voices built into Windows / the browser (free, offline)
+// Text is spoken sentence by sentence as it streams in. ElevenLabs audio for
+// later sentences is fetched while earlier ones play, so there are few gaps.
 const speaker = {
   buffer: "",
   queued: 0,
+  chain: Promise.resolve(),
+  generation: 0,
+  current: null,
   idleWaiters: [],
-  voice() {
-    const name = state.prefs.voice;
-    return speechSynthesis.getVoices().find((v) => v.name === name) ?? null;
+  choice() {
+    const v = state.prefs.voice ?? "";
+    if (v.startsWith("el:") || v.startsWith("pc:")) return v;
+    if (!v && state.integrations?.elevenlabs?.connected) return `el:${state.integrations.elevenlabs.voiceId}`;
+    return v ? `pc:${v}` : "pc:"; // older saved setting = PC voice name
+  },
+  browserSay(text) {
+    return new Promise((resolve) => {
+      if (!("speechSynthesis" in window)) return resolve();
+      const u = new SpeechSynthesisUtterance(text);
+      const name = this.choice().startsWith("pc:") ? this.choice().slice(3) : "";
+      const v = speechSynthesis.getVoices().find((x) => x.name === name);
+      if (v) { u.voice = v; u.lang = v.lang; }
+      u.rate = Number(state.prefs.rate ?? 1);
+      u.onend = u.onerror = () => resolve();
+      speechSynthesis.speak(u);
+    });
+  },
+  play(url) {
+    return new Promise((resolve) => {
+      const a = new Audio(url);
+      a.playbackRate = Number(state.prefs.rate ?? 1);
+      this.current = a;
+      a.onended = a.onerror = () => resolve();
+      a.play().catch(() => resolve());
+    });
   },
   say(text) {
-    const clean = text.replace(/[*_#`>]+/g, " ").replace(/\s+/g, " ").trim();
-    if (!clean || !("speechSynthesis" in window)) return;
-    const u = new SpeechSynthesisUtterance(clean);
-    const v = this.voice();
-    if (v) { u.voice = v; u.lang = v.lang; }
-    u.rate = Number(state.prefs.rate ?? 1);
+    const clean = text.replace(/[*_#`>|]+/g, " ").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    const gen = this.generation;
+    const choice = this.choice();
+    // Start downloading ElevenLabs audio now, even if something is still playing.
+    const audio = choice.startsWith("el:")
+      ? api("/api/tts", { text: clean, voiceId: choice.slice(3) }).then(async (r) => {
+          if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
+          return URL.createObjectURL(await r.blob());
+        })
+      : null;
+    audio?.catch(() => {}); // handled below, in order
     this.queued++;
-    u.onend = u.onerror = () => {
-      this.queued = Math.max(0, this.queued - 1);
-      if (!this.queued) this.idleWaiters.splice(0).forEach((fn) => fn());
-    };
-    speechSynthesis.speak(u);
+    this.chain = this.chain
+      .then(async () => {
+        if (gen !== this.generation) return;
+        if (!audio) return this.browserSay(clean);
+        try {
+          const url = await audio;
+          if (gen !== this.generation) return URL.revokeObjectURL(url);
+          await this.play(url);
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          if (gen !== this.generation) return;
+          showStatus(false, `ElevenLabs: ${err.message} Using the PC voice instead.`);
+          await this.browserSay(clean);
+        }
+      })
+      .finally(() => {
+        this.queued = Math.max(0, this.queued - 1);
+        if (!this.queued) this.idleWaiters.splice(0).forEach((fn) => fn());
+      });
   },
   feed(delta) {
     this.buffer += delta;
@@ -546,24 +606,36 @@ const speaker = {
   },
   flush() { this.say(this.buffer); this.buffer = ""; },
   cancel() {
+    this.generation++;
     this.buffer = "";
-    this.queued = 0;
+    this.current?.pause();
     if ("speechSynthesis" in window) speechSynthesis.cancel();
-    this.idleWaiters.splice(0).forEach((fn) => fn());
   },
   whenIdle() {
     return this.queued ? new Promise((r) => this.idleWaiters.push(r)) : Promise.resolve();
   },
 };
 
-function loadVoices() {
-  if (!("speechSynthesis" in window)) { els.voiceSelect.disabled = true; return; }
-  const voices = speechSynthesis.getVoices();
-  els.voiceSelect.replaceChildren(
-    new Option("Default voice", ""),
-    ...voices.map((v) => new Option(`${v.name} (${v.lang})${v.localService ? "" : " · online"}`, v.name)),
-  );
-  els.voiceSelect.value = state.prefs.voice ?? "";
+async function loadVoices() {
+  const groups = [];
+  if (state.integrations?.elevenlabs?.connected) {
+    try {
+      const data = await (await fetch("/api/voices")).json();
+      const g = h("optgroup", { label: "ElevenLabs (natural, online)" });
+      for (const v of data.voices ?? []) g.append(new Option(v.name, `el:${v.id}`));
+      if (!data.voices?.length) g.append(new Option(data.error ? `⚠️ ${data.error}` : "Default ElevenLabs voice", `el:${data.defaultVoiceId ?? ""}`));
+      groups.push(g);
+    } catch { /* offline: only PC voices */ }
+  }
+  const pc = h("optgroup", { label: "This PC (free, offline)" });
+  pc.append(new Option("Default PC voice", "pc:"));
+  if ("speechSynthesis" in window) {
+    for (const v of speechSynthesis.getVoices()) pc.append(new Option(`${v.name} (${v.lang})${v.localService ? "" : " · online"}`, `pc:${v.name}`));
+  }
+  groups.push(pc);
+  els.voiceSelect.replaceChildren(...groups);
+  const want = speaker.choice();
+  els.voiceSelect.value = [...els.voiceSelect.options].some((o) => o.value === want) ? want : els.voiceSelect.options[0]?.value;
 }
 if ("speechSynthesis" in window) speechSynthesis.onvoiceschanged = loadVoices;
 els.voiceSelect.onchange = () => savePrefs({ voice: els.voiceSelect.value });

@@ -18,7 +18,7 @@ Your own AI assistant that runs on your Windows PC. It chats, remembers who you 
 
 ## Start it on Windows
 
-1. Install **Node.js** (LTS) from [nodejs.org](https://nodejs.org) and **Ollama** from [ollama.com/download](https://ollama.com/download).
+1. Install **Node.js** (LTS, version 22 or newer) from [nodejs.org](https://nodejs.org) and **Ollama** from [ollama.com/download](https://ollama.com/download).
 2. Download a model that can use actions. Open *Command Prompt* and run:
    ```bat
    ollama pull qwen2.5:7b
@@ -57,6 +57,54 @@ Click **🗣️**, or press **Ctrl+Shift+H**, then just talk.
 3. To stop, say **"stop listening"** or **"goodbye"**, or click 🗣️.
 
 Choose the spoken voice and speed in **Profile & personality → Spoken voice**. Windows voices such as *Microsoft Zira* or *David* work offline. Voices marked "online" sound more natural but need internet. Use Chrome or Edge.
+
+## Natural voice (ElevenLabs)
+
+ElevenLabs makes your AI sound like a real person.
+
+1. Sign up at [elevenlabs.io](https://elevenlabs.io). The free plan includes some speech each month.
+2. Open your profile → **API Keys** → **Create**, then copy the key.
+3. In `.env`, set `ELEVENLABS_API_KEY=` to your key, then restart the app.
+4. In **Profile & personality → Spoken voice**, pick a voice under *ElevenLabs*. Voices you made or added in ElevenLabs, including a clone of your own voice, appear there too.
+
+How it works:
+- **Your key stays on your PC.** The browser only receives the audio.
+- **Text you hear is sent to ElevenLabs** to turn it into speech, and ElevenLabs bills by character.
+- **Fallback:** if ElevenLabs fails (no internet, quota used up), your AI switches to the free PC voice for that sentence.
+
+## Message your AI from your phone
+
+Your PC must be on with the app running. The bots reach out to Telegram or Discord from your PC, so you don't need to open your PC to the internet.
+
+**Only people you allow can use the bots**, because your AI can control your PC. Anyone else just gets a message with their own user ID.
+
+### Telegram (easiest)
+
+1. In Telegram, open **@BotFather**, send `/newbot`, and pick a name and a username ending in `bot`.
+2. BotFather gives you a token like `123456:ABC-...`. Put it in `.env` as `TELEGRAM_BOT_TOKEN=`.
+3. Restart the app, open your bot in Telegram, and send `hi`. It replies with *"Your Telegram user ID is 123456789"*.
+4. Put that number in `.env` as `TELEGRAM_ALLOWED_USERS=123456789`, then restart.
+
+Now chat as normal:
+- Actions like shutdown show ✅ **Confirm** / **Cancel** buttons.
+- `/new` starts a fresh conversation.
+
+### Discord
+
+1. Go to [discord.com/developers/applications](https://discord.com/developers/applications) → **New Application**.
+2. Open **Bot** → **Reset Token**, copy the token, and put it in `.env` as `DISCORD_BOT_TOKEN=`.
+3. Open **OAuth2 → URL Generator**:
+   - tick **bot**
+   - then tick **View Channels**, **Send Messages** and **Read Message History**
+   - open the generated link and add the bot to your own server
+4. Restart the app and send the bot a direct message (or @mention it in your server). It replies with your user ID.
+5. Put it in `.env` as `DISCORD_ALLOWED_USERS=`, then restart.
+
+In servers, the bot only answers when you @mention it. Say `new` to start a fresh conversation.
+
+### WhatsApp (not built yet)
+
+WhatsApp is harder. Meta's servers have to *push* each message to your app, so your PC would need to be reachable from the internet through a tunnel (such as Cloudflare Tunnel). You'd also need a WhatsApp Business account in Meta's developer console. Telegram does the same job without any of that. Ask if you want WhatsApp anyway, and it can be added with the tunnel locked down to WhatsApp only.
 
 ## Voice typing (like Wispr Flow)
 
@@ -108,6 +156,7 @@ Any Ollama model can chat. To use **actions**, the model needs tool support:
 | Reminders | `data/reminders.json` |
 | Your apps | `data/apps.json` |
 | Google key (secret) | `data/google-service-account.json` |
+| Bot conversations | Memory only, cleared when the app restarts |
 | Settings and API key | `.env` (never commit it) |
 
 The app listens on `127.0.0.1` only, so other devices on your network can't open it. It also refuses requests from other websites open in your browser, so a web page can't control your PC through it. Open it as `http://localhost:3000` or `http://127.0.0.1:3000`.
