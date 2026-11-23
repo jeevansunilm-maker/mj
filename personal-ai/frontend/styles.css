@@ -181,6 +181,7 @@ dialog::backdrop { background: rgb(0 0 0 / .45); }
 
 /* Phones: sidebar becomes a slide-over */
 @media (max-width: 760px) {
+  .toasts { top: auto; bottom: 150px; left: 16px; right: 16px; }
   .btn.icon { display: inline-block; }
   .sidebar {
     position: fixed; inset: 0 auto 0 0; z-index: 10; transform: translateX(-100%);
@@ -191,3 +192,148 @@ dialog::backdrop { background: rgb(0 0 0 / .45); }
   .controls { width: 100%; }
   .controls select { flex: 1; max-width: none; min-width: 0; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   AI core orb (used by both looks; slots are hidden in Classic)
+   Colour/speed change with body[data-ai]: idle · listening · thinking · speaking
+   ════════════════════════════════════════════════════════════ */
+:root { --orb-rgb: 0 214 255; --spin-a: 18s; --spin-b: 9s; --pulse: 4s; }
+body[data-ai="listening"] { --orb-rgb: 57 255 176; --pulse: 1.1s; }
+body[data-ai="thinking"]  { --orb-rgb: 255 196 87; --spin-a: 2.4s; --spin-b: 1.3s; --pulse: 1.6s; }
+body[data-ai="speaking"]  { --orb-rgb: 90 230 255; --pulse: .38s; }
+
+.orb { position: relative; width: var(--orb-size, 120px); aspect-ratio: 1; flex-shrink: 0; }
+.orb .ring, .orb .core { position: absolute; border-radius: 50%; transition: border-color .4s, box-shadow .4s; }
+.orb .r1 { inset: 0; border: 1px solid rgb(var(--orb-rgb) / .3); }
+.orb .r2 { inset: 6%; border: 2px dashed rgb(var(--orb-rgb) / .5); animation: orb-spin var(--spin-a) linear infinite; }
+.orb .r3 {
+  inset: 13%;
+  background: conic-gradient(rgb(var(--orb-rgb)) 0 9%, transparent 9% 25%, rgb(var(--orb-rgb)) 25% 34%, transparent 34% 50%,
+    rgb(var(--orb-rgb)) 50% 59%, transparent 59% 75%, rgb(var(--orb-rgb)) 75% 84%, transparent 84%);
+  -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%, #000 69%, transparent 70%);
+  mask: radial-gradient(circle, transparent 60%, #000 61%, #000 69%, transparent 70%);
+  opacity: .8; animation: orb-spin var(--spin-b) linear infinite reverse;
+}
+.orb .r4 {
+  inset: 27%; border: 1px solid rgb(var(--orb-rgb) / .7);
+  box-shadow: 0 0 18px rgb(var(--orb-rgb) / .35), inset 0 0 18px rgb(var(--orb-rgb) / .25);
+}
+.orb .core {
+  inset: 35%;
+  background: radial-gradient(circle at 50% 45%, #f2feff 0, rgb(var(--orb-rgb)) 30%, rgb(var(--orb-rgb) / .35) 62%, transparent 72%);
+  box-shadow: 0 0 40px rgb(var(--orb-rgb) / .55);
+  animation: orb-breathe var(--pulse) ease-in-out infinite alternate;
+}
+@keyframes orb-spin { to { transform: rotate(360deg); } }
+@keyframes orb-breathe { from { transform: scale(.88); opacity: .85; } to { transform: scale(1.08); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .orb .r2, .orb .r3, .orb .core { animation: none; } }
+
+.mini-orb-slot .orb { --orb-size: 34px; }
+.big-orb-slot { display: flex; justify-content: center; margin-bottom: 8px; }
+.big-orb-slot .orb { --orb-size: min(200px, 45vw); }
+.stage-orb-slot .orb { --orb-size: min(300px, 62vw, 38vh); }
+
+/* Voice stage: full-screen hands-free mode (both looks) */
+.main { position: relative; }
+.voice-stage {
+  position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 14px; padding: 24px 16px; text-align: center; background: var(--bg);
+}
+.voice-stage[hidden] { display: none; }
+.stage-state { margin: 0; font-size: 14px; letter-spacing: .3em; text-transform: uppercase; color: rgb(var(--orb-rgb)); }
+.stage-heard { margin: 0; color: var(--muted); font-style: italic; min-height: 1.5em; max-width: 680px; }
+.stage-reply { margin: 0; font-size: 20px; line-height: 1.45; max-width: 720px; max-height: 32vh; overflow-y: auto; white-space: pre-wrap; }
+
+/* Classic look hides the HUD-only parts */
+:root:not([data-ui="hud"]) .hud-panel,
+:root:not([data-ui="hud"]) .mini-orb-slot,
+:root:not([data-ui="hud"]) .big-orb-slot { display: none; }
+
+/* ════════════════════════════════════════════════════════════
+   HUD look: dark holographic interface
+   ════════════════════════════════════════════════════════════ */
+:root[data-ui="hud"] {
+  color-scheme: dark;
+  --bg: #03070c;
+  --panel: rgb(6 18 30 / .78);
+  --text: #d9f7ff;
+  --muted: #86aebd;
+  --border: rgb(0 214 255 / .22);
+  --accent: #00d6ff;
+  --accent-text: #00131a;
+  --user-bubble: rgb(0 214 255 / .1);
+  --user-text: #e6fbff;
+  --ai-bubble: rgb(6 18 30 / .82);
+  --ok: #39ffb0;
+  --bad: #ff5c7a;
+  --hud-font: "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --glow: 0 0 14px rgb(0 214 255 / .25);
+  /* corner brackets drawn with 8 tiny gradients */
+  --brackets:
+    linear-gradient(var(--accent), var(--accent)) top left / 14px 1px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) top left / 1px 14px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) top right / 14px 1px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) top right / 1px 14px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) bottom left / 14px 1px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) bottom left / 1px 14px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) bottom right / 14px 1px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) bottom right / 1px 14px no-repeat;
+}
+:root[data-ui="hud"] body {
+  font-family: var(--hud-font);
+  background:
+    radial-gradient(ellipse 70% 55% at 55% 35%, rgb(0 150 255 / .12), transparent 70%),
+    linear-gradient(rgb(0 214 255 / .035) 1px, transparent 1px) 0 0 / 44px 44px,
+    linear-gradient(90deg, rgb(0 214 255 / .035) 1px, transparent 1px) 0 0 / 44px 44px,
+    var(--bg);
+}
+:root[data-ui="hud"] .sidebar,
+:root[data-ui="hud"] .topbar,
+:root[data-ui="hud"] .composer { background: var(--panel); border-color: var(--border); backdrop-filter: blur(6px); }
+:root[data-ui="hud"] .topbar h1 {
+  text-transform: uppercase; letter-spacing: .28em; font-weight: 600; font-size: 18px;
+  color: #e9fcff; text-shadow: 0 0 12px rgb(0 214 255 / .6);
+}
+:root[data-ui="hud"] .status-detail { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); opacity: .8; }
+
+:root[data-ui="hud"] .btn {
+  font-family: var(--hud-font); text-transform: uppercase; letter-spacing: .08em; font-size: 13px;
+  background: rgb(0 214 255 / .06); border-color: var(--border); color: var(--text);
+}
+:root[data-ui="hud"] .btn:hover { border-color: var(--accent); box-shadow: var(--glow); }
+:root[data-ui="hud"] .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); box-shadow: var(--glow); font-weight: 600; }
+:root[data-ui="hud"] .btn.icon-btn { font-size: 16px; letter-spacing: 0; text-transform: none; }
+:root[data-ui="hud"] :is(input, select, textarea) { background: rgb(0 10 18 / .85); border-color: var(--border); font-family: var(--hud-font); }
+:root[data-ui="hud"] :is(input, select, textarea):focus { outline: none; border-color: var(--accent); box-shadow: var(--glow); }
+:root[data-ui="hud"] :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+:root[data-ui="hud"] .msg.user { background: var(--user-bubble); border: 1px solid rgb(0 214 255 / .45); color: var(--user-text); border-radius: 4px 14px 4px 14px; }
+:root[data-ui="hud"] .msg.assistant,
+:root[data-ui="hud"] .hud-panel,
+:root[data-ui="hud"] dialog { background: var(--brackets), var(--ai-bubble); border: 1px solid var(--border); border-radius: 4px; }
+:root[data-ui="hud"] .msg.assistant { box-shadow: 0 0 24px rgb(0 0 0 / .4); }
+:root[data-ui="hud"] .card { background: rgb(0 214 255 / .05); border-color: var(--border); border-radius: 4px; }
+:root[data-ui="hud"] .card pre, :root[data-ui="hud"] .table-wrap td { background: rgb(0 10 18 / .7); font-family: var(--mono); font-size: 13px; }
+:root[data-ui="hud"] .chat-list li.active { background: rgb(0 214 255 / .1); box-shadow: inset 2px 0 0 var(--accent); }
+:root[data-ui="hud"] .empty h2 { text-transform: uppercase; letter-spacing: .2em; font-weight: 500; color: #e9fcff; text-shadow: 0 0 14px rgb(0 214 255 / .5); }
+:root[data-ui="hud"] .voice-stage { background: radial-gradient(ellipse at 50% 40%, rgb(0 70 100 / .45), transparent 70%), rgb(3 7 12 / .985); }
+:root[data-ui="hud"] .stage-reply { font-family: var(--hud-font); text-shadow: 0 0 10px rgb(0 214 255 / .25); }
+:root[data-ui="hud"] .toast { background: var(--brackets), #061624; border: 1px solid var(--accent); box-shadow: var(--glow); }
+:root[data-ui="hud"] dialog::backdrop { background: rgb(0 4 8 / .75); backdrop-filter: blur(2px); }
+:root[data-ui="hud"] .connections { border-color: var(--border); }
+
+/* System readout panel */
+.hud-panel.sys { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; font-family: var(--mono); font-size: 12px; }
+.sys-head { display: flex; align-items: center; gap: 8px; letter-spacing: .14em; color: var(--ok); }
+.sys-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); animation: orb-breathe 1.6s ease-in-out infinite alternate; }
+.clock { font-family: var(--hud-font); font-size: 30px; letter-spacing: .08em; color: #e9fcff; text-shadow: 0 0 12px rgb(0 214 255 / .55); line-height: 1.1; }
+.date { color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+.meter { display: grid; grid-template-columns: 34px 1fr 40px; align-items: center; gap: 8px; color: var(--muted); }
+.meter b { color: var(--text); font-weight: 500; text-align: right; }
+.bar { height: 6px; background: rgb(0 214 255 / .1); border: 1px solid var(--border); }
+.bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, rgb(0 214 255 / .5), var(--accent)); box-shadow: 0 0 8px rgb(0 214 255 / .6); transition: width .6s; }
+.bar i.hot { background: linear-gradient(90deg, #ff9f43, var(--bad)); box-shadow: 0 0 8px var(--bad); }
+.sys-foot { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); letter-spacing: .06em; overflow: hidden; white-space: nowrap; }
+.sys-foot span:last-child { overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-reduced-motion: reduce) { .sys-dot { animation: none; } }

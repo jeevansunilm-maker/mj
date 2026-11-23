@@ -48,6 +48,17 @@ Your own AI assistant that runs on your Windows PC. It chats, remembers who you 
 
 You can also manage reminders yourself with the **⏰ Reminders** button.
 
+## The look
+
+By default the app uses a futuristic **HUD** design:
+- an animated AI core that changes colour as it **listens** (green), **thinks** (amber) and **speaks** (cyan)
+- a live system panel with the clock, CPU, memory and battery
+- glowing panels with corner brackets
+
+In hands-free mode the core fills the screen, with live captions of what you said and what it answers.
+
+To switch to the simple **Classic** look, open **Profile & personality → Look**. If you've turned on Windows' *reduce animations* setting, the animations are switched off.
+
 ## Hands-free conversation
 
 Click **🗣️**, or press **Ctrl+Shift+H**, then just talk.

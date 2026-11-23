@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-ui="hud">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,6 +10,16 @@
     <div class="layout">
       <!-- Sidebar: saved conversations (stored in your browser) -->
       <aside class="sidebar" id="sidebar">
+        <!-- HUD readouts (shown in the HUD look) -->
+        <section class="hud-panel sys" aria-label="System status">
+          <div class="sys-head"><span class="sys-dot"></span><span id="sysState">SYSTEM ONLINE</span></div>
+          <div class="clock" id="hudClock">--:--</div>
+          <div class="date" id="hudDate"></div>
+          <div class="meter"><span>CPU</span><div class="bar"><i id="cpuBar"></i></div><b id="cpuVal">--</b></div>
+          <div class="meter"><span>RAM</span><div class="bar"><i id="memBar"></i></div><b id="memVal">--</b></div>
+          <div class="meter" id="batteryRow" hidden><span>PWR</span><div class="bar"><i id="batBar"></i></div><b id="batVal">--</b></div>
+          <div class="sys-foot"><span id="uptimeVal">UPTIME --</span><span id="hostVal"></span></div>
+        </section>
         <button class="btn primary wide" id="newChat" type="button">+ New chat</button>
         <ul class="chat-list" id="chatList" aria-label="Conversations"></ul>
         <button class="btn wide" id="openReminders" type="button">⏰ Reminders <span class="badge" id="reminderCount" hidden></span></button>
@@ -20,6 +30,7 @@
       <main class="main">
         <header class="topbar">
           <button class="btn icon" id="toggleSidebar" type="button" aria-label="Show conversations">☰</button>
+          <div class="mini-orb-slot" aria-hidden="true"></div>
           <h1 id="assistantTitle">Nova</h1>
           <div class="controls">
             <span class="dot" id="statusDot" title=""></span>
@@ -34,10 +45,20 @@
 
         <section class="messages" id="messages" aria-live="polite">
           <div class="empty" id="emptyState">
+            <div class="big-orb-slot" aria-hidden="true"></div>
             <h2>Hi! I'm your personal AI.</h2>
             <p>Ask me anything. Tell me about yourself under <strong>Profile &amp; personality</strong> so I can tailor my answers.</p>
             <p class="examples">Try: “Remind me to drink water in 30 minutes” · “Draft an email asking for Friday off” · “Set volume to 30” · “Open notepad” · “Add a ₹450 lunch expense to my budget sheet”</p>
           </div>
+        </section>
+
+        <!-- Full-screen voice mode (hands-free) -->
+        <section class="voice-stage" id="voiceStage" hidden aria-label="Voice conversation">
+          <div class="stage-orb-slot" aria-hidden="true"></div>
+          <p class="stage-state" id="stageState" role="status">Listening</p>
+          <p class="stage-heard" id="stageHeard"></p>
+          <p class="stage-reply" id="stageReply"></p>
+          <button class="btn" id="stageStop" type="button">End voice mode</button>
         </section>
 
         <form class="composer" id="composer">
@@ -65,6 +86,12 @@
         <label>Assistant's name <input name="assistantName" maxlength="50" placeholder="Nova" /></label>
         <label>Assistant's personality
           <textarea name="personality" rows="3" maxlength="1000"></textarea>
+        </label>
+        <label>Look
+          <select id="uiSelect">
+            <option value="hud">HUD: futuristic, dark, animated</option>
+            <option value="classic">Classic: simple, light or dark</option>
+          </select>
         </label>
         <div class="voice-settings">
           <label>Spoken voice <select id="voiceSelect"></select></label>
@@ -99,6 +126,14 @@
 
     <!-- Fired reminders pop up here -->
     <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+    <!-- The AI "core" orb, copied into each orb slot -->
+    <template id="orbTemplate">
+      <div class="orb">
+        <span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span>
+        <span class="ring r4"></span><span class="core"></span>
+      </div>
+    </template>
 
     <script type="module" src="app.js"></script>
   </body>

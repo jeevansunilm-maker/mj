@@ -73,3 +73,10 @@ test("rejects invalid requests", async () => {
   assert.equal((await chat(t.base, { messages: [] })).status, 400);
   assert.equal((await chat(t.base, { provider: "x", messages: [{ role: "user", content: "hi" }] })).status, 400);
 });
+
+test("stats endpoint reports CPU and memory", async () => {
+  const s = await (await fetch(t.base + "/api/stats")).json();
+  assert.ok(s.cpu >= 0 && s.cpu <= 100);
+  assert.ok(s.memTotalGb > 0 && s.memPct >= 0 && s.memPct <= 100);
+  assert.ok(s.uptimeSec > 0);
+});

@@ -6,6 +6,7 @@ import { cleanMessages } from "./prompt.js";
 import { ProviderError, isAbortError } from "./providers/errors.js";
 import { parseDueAt } from "./reminders.js";
 import { securityMiddleware } from "./security.js";
+import { createStats } from "./stats.js";
 
 const POLISH_PROMPT =
   "You clean up dictated speech. Remove filler words (um, uh, like, you know), false starts and " +
@@ -32,6 +33,9 @@ export function createApp({
   const modelOf = (req) => (typeof req.body?.model === "string" ? req.body.model : undefined);
 
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+  const readStats = createStats();
+  app.get("/api/stats", (_req, res) => res.json(readStats()));
 
   // Which AI providers can be used right now, and which actions exist?
   app.get("/api/status", async (_req, res) => {

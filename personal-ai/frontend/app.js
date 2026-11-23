@@ -266,6 +266,7 @@ async function send(text, hooks = {}) {
   els.messages.append(bubble);
   let textEl = null; // the text block currently being typed into
   setBusy(true);
+  if (!handsFree.on) setAiState("thinking");
 
   let error = null;
   state.controller = new AbortController();
@@ -310,6 +311,7 @@ async function send(text, hooks = {}) {
     state.controller = null;
     setBusy(false);
     bubble.classList.remove("thinking");
+    if (!handsFree.on && !speaker.queued) setAiState("idle");
   }
 
   for (const p of parts) if (p.type === "text") p.text = p.text.trim();
@@ -579,6 +581,7 @@ const speaker = {
     this.chain = this.chain
       .then(async () => {
         if (gen !== this.generation) return;
+        setAiState("speaking");
         if (!audio) return this.browserSay(clean);
         try {
           const url = await audio;
@@ -593,7 +596,10 @@ const speaker = {
       })
       .finally(() => {
         this.queued = Math.max(0, this.queued - 1);
-        if (!this.queued) this.idleWaiters.splice(0).forEach((fn) => fn());
+        if (!this.queued) {
+          this.idleWaiters.splice(0).forEach((fn) => fn());
+          if (!handsFree.on && !state.controller) setAiState("idle");
+        }
       });
   },
   feed(delta) {
@@ -650,6 +656,9 @@ const STOP_WORDS = /^(stop listening|stop talking|goodbye|bye|exit|that's all)[.
 const PAUSE_MS = 1300; // how long a pause means "I'm done talking"
 
 function setHandsFreeUi(mode) {
+  setAiState(mode ?? "idle");
+  $("voiceStage").hidden = !handsFree.on;
+  $("stageState").textContent = { listening: "Listening", thinking: "Thinking", speaking: "Speaking" }[mode] ?? "";
   els.talkBtn.classList.toggle("listening", mode === "listening");
   els.talkBtn.setAttribute("aria-pressed", String(handsFree.on));
   const label = { listening: "🎙️ Listening… (say “stop listening” to end)", thinking: "💭 Thinking…", speaking: "🔊 Speaking… (press 🗣️ to stop)" }[mode];
@@ -674,6 +683,7 @@ function listenOnce() {
         else interim += e.results[i][0].transcript;
       }
       els.input.value = (finalText + interim).trim();
+      $("stageHeard").textContent = els.input.value;
       autoGrow();
       clearTimeout(timer);
       timer = setTimeout(finish, PAUSE_MS); // restart the pause timer on every word
@@ -694,6 +704,7 @@ function listenOnce() {
 async function handsFreeLoop() {
   while (handsFree.on) {
     setHandsFreeUi("listening");
+    $("stageHeard").textContent = "";
     const heard = await listenOnce();
     if (!handsFree.on) break;
     if (!heard) continue; // silence: just listen again
@@ -702,7 +713,14 @@ async function handsFreeLoop() {
     autoGrow();
     setHandsFreeUi("thinking");
     let spoke = false;
-    await send(heard, { onText: (t) => { if (!spoke) { spoke = true; setHandsFreeUi("speaking"); } speaker.feed(t); } });
+    $("stageReply").textContent = "";
+    await send(heard, {
+      onText: (t) => {
+        if (!spoke) { spoke = true; setHandsFreeUi("speaking"); }
+        $("stageReply").textContent += t;
+        speaker.feed(t);
+      },
+    });
     speaker.flush();
     if (!handsFree.on) break;
     setHandsFreeUi("speaking");
@@ -728,9 +746,81 @@ function stopHandsFree() {
   setHandsFreeUi(null);
 }
 els.talkBtn.onclick = () => (handsFree.on ? stopHandsFree() : startHandsFree());
+$("stageStop").onclick = () => stopHandsFree();
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.shiftKey && e.code === "KeyH") { e.preventDefault(); els.talkBtn.click(); }
 });
+
+// ── HUD look: orbs, AI state, clock and system meters ────────
+/** idle | listening | thinking | speaking: drives the orb's colour and motion. */
+function setAiState(mode) {
+  document.body.dataset.ai = mode;
+  $("sysState").textContent = { idle: "SYSTEM ONLINE", listening: "LISTENING", thinking: "PROCESSING", speaking: "RESPONDING" }[mode] ?? "SYSTEM ONLINE";
+}
+
+function mountOrbs() {
+  const tpl = $("orbTemplate");
+  for (const slot of document.querySelectorAll(".mini-orb-slot, .big-orb-slot, .stage-orb-slot")) {
+    if (!slot.firstElementChild) slot.append(tpl.content.cloneNode(true));
+  }
+}
+
+function applyUi(ui) {
+  document.documentElement.dataset.ui = ui === "classic" ? "classic" : "hud";
+  $("uiSelect").value = document.documentElement.dataset.ui;
+}
+$("uiSelect").onchange = (e) => { applyUi(e.target.value); savePrefs({ ui: e.target.value }); };
+
+const pad2 = (n) => String(n).padStart(2, "0");
+function tickClock() {
+  const d = new Date();
+  $("hudClock").textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+  $("hudDate").textContent = d.toLocaleDateString(undefined, { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+}
+
+function setMeter(bar, label, pct, text) {
+  $(bar).style.width = `${pct}%`;
+  $(bar).classList.toggle("hot", pct >= 85);
+  $(label).textContent = text;
+}
+
+async function pollStats() {
+  if (document.hidden || document.documentElement.dataset.ui !== "hud") return;
+  try {
+    const s = await (await fetch("/api/stats")).json();
+    setMeter("cpuBar", "cpuVal", s.cpu, `${s.cpu}%`);
+    setMeter("memBar", "memVal", s.memPct, `${s.memPct}%`);
+    const h = Math.floor(s.uptimeSec / 3600), m = Math.floor((s.uptimeSec % 3600) / 60);
+    $("uptimeVal").textContent = `UPTIME ${h}H ${pad2(m)}M`;
+    $("hostVal").textContent = s.host.toUpperCase();
+    $("cpuBar").parentElement.title = `${s.cpuName} · ${s.cores} cores`;
+    $("memBar").parentElement.title = `${s.memUsedGb} / ${s.memTotalGb} GB`;
+  } catch { /* backend restarting */ }
+}
+
+async function watchBattery() {
+  if (!navigator.getBattery) return; // Chrome/Edge only
+  try {
+    const b = await navigator.getBattery();
+    const show = () => {
+      const pct = Math.round(b.level * 100);
+      $("batteryRow").hidden = false;
+      setMeter("batBar", "batVal", pct, `${pct}%${b.charging ? "+" : ""}`);
+      $("batBar").classList.toggle("hot", pct <= 15 && !b.charging);
+    };
+    b.onlevelchange = b.onchargingchange = show;
+    show();
+  } catch { /* not available */ }
+}
+
+mountOrbs();
+applyUi(state.prefs.ui ?? "hud");
+setAiState("idle");
+tickClock();
+setInterval(tickClock, 1000);
+pollStats();
+setInterval(pollStats, 3000);
+watchBattery();
 
 // ── Wiring ───────────────────────────────────────────────────
 els.composer.addEventListener("submit", (e) => {

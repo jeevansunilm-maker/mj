@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.0 (2026-11-23)
+
+### Added
+- **HUD look (new default):** an original holographic interface.
+  - an animated AI core orb that reacts to listening, thinking and speaking
+  - a live system panel with clock, date, CPU, RAM, battery and uptime (new `/api/stats` endpoint)
+  - corner-bracket panels over a grid background, using Windows' built-in Bahnschrift font (nothing to download)
+- **Full-screen voice stage** in hands-free mode, with live captions.
+- **Look switcher** (HUD / Classic) in Profile. Animations respect the reduce-motion setting.
+
 ## 1.3.0 (2026-11-23)
 
 ### Added
