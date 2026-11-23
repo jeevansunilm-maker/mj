@@ -1,0 +1,31 @@
+{
+ "id": "01-pc-date",
+ "title": "GTA 6 PC Release Date: What's Real (2027?)",
+ "hook_text": "PC players: read this first",
+ "beats": [
+  {
+   "say": "If you are waiting for GTA 6 on PC, stop refreshing. Here is what is actually known.",
+   "screen": "You at a PC, scrolling a store page that has no GTA 6 listing"
+  },
+  {
+   "say": "GTA 6 came out on November 19th, on PS5 and Xbox Series X and S. Only those two.",
+   "screen": "Console boot screens side by side, PS5 and Xbox"
+  },
+  {
+   "say": "Rockstar has not given PC a date. Not a month. Not a year.",
+   "screen": "Text card: PC = NO DATE"
+  },
+  {
+   "say": "The one report going around says early 2027. That is a report, not Rockstar.",
+   "screen": "Headline screenshot of the GamesBeat report, report label big"
+  },
+  {
+   "say": "And GTA 5 reached PC about a year and a half after it hit consoles.",
+   "screen": "Timeline: GTA 5 console 2013, PC 2015"
+  },
+  {
+   "say": "So: no date, early 2027 is the rumour, and until Rockstar says it, stop refreshing.",
+   "screen": "Back to the empty store page, you close the tab"
+  }
+ ]
+}

@@ -1,0 +1,31 @@
+{
+ "id": "02-ps5-crash",
+ "title": "GTA 6 PS5 Crash CE-108255-1: Check This First",
+ "hook_text": "Don't reinstall yet",
+ "beats": [
+  {
+   "say": "Why is your PS5 crashing in GTA 6? Before you reinstall, check this one error code.",
+   "screen": "Phone photo of the PS5 crash screen"
+  },
+  {
+   "say": "If it says CE-108255-1, that is the code being reported on some PS5s since launch.",
+   "screen": "Zoom on the error code, circled"
+  },
+  {
+   "say": "So you are not the only one, and it is not just your console.",
+   "screen": "Screenshot montage of forum posts with the same code (blur usernames)"
+  },
+  {
+   "say": "[FILL: the exact fix that worked for YOU, step by step. Only post a fix you tested.]",
+   "screen": "Screen recording of the settings menu, each step on screen"
+  },
+  {
+   "say": "That is the fix. Check the code first, try that, and only reinstall if it still crashes.",
+   "screen": "Game running cleanly past the point it used to crash"
+  },
+  {
+   "say": "Comment your error code if it is a different one.",
+   "screen": "Comment icon pointing down"
+  }
+ ]
+}

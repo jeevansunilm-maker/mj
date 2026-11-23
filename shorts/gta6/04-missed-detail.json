@@ -1,0 +1,27 @@
+{
+ "id": "04-missed-detail",
+ "title": "You Missed This on GTA 6's First Street",
+ "hook_text": "Look left",
+ "beats": [
+  {
+   "say": "Why did nobody notice this in GTA 6? You drove past it before you even left the first street.",
+   "screen": "Driving fast past the spot, normal speed"
+  },
+  {
+   "say": "[FILL: name the detail in one line. Something YOU found, not something you read about.]",
+   "screen": "Same shot, slowed down, the detail circled"
+  },
+  {
+   "say": "[FILL: the second beat. Why it is there, or what happens when you interact with it.]",
+   "screen": "You walking up to it and interacting"
+  },
+  {
+   "say": "Now you will see it every time you drive past.",
+   "screen": "Driving past again, this time the camera turns to look"
+  },
+  {
+   "say": "Which one should I check next?",
+   "screen": "Map with three candidate spots marked"
+  }
+ ]
+}

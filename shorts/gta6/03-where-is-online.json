@@ -1,0 +1,31 @@
+{
+ "id": "03-where-is-online",
+ "title": "Where Is GTA 6 Online? (2027 Report)",
+ "hook_text": "Nothing is broken",
+ "beats": [
+  {
+   "say": "Why can you not find GTA Online in GTA 6? You did not miss a menu. It is not out yet.",
+   "screen": "You scrolling the GTA 6 pause menu, no Online option"
+  },
+  {
+   "say": "GTA 6 launched on November 19th without the new Online mode.",
+   "screen": "Story mode gameplay, driving"
+  },
+  {
+   "say": "Rockstar has not given it a date.",
+   "screen": "Text card: ONLINE = NO DATE"
+  },
+  {
+   "say": "Bloomberg's Jason Schreier has reported it is expected in 2027. Rockstar has not confirmed that.",
+   "screen": "Headline screenshot, 'reported' highlighted"
+  },
+  {
+   "say": "So nothing is wrong with your copy. Online is coming, the reporting says 2027, and it is not dated.",
+   "screen": "Back to the pause menu"
+  },
+  {
+   "say": "Follow and you will hear it the day it gets a date.",
+   "screen": "Follow button"
+  }
+ ]
+}

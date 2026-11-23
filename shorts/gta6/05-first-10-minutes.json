@@ -1,0 +1,27 @@
+{
+ "id": "05-first-10-minutes",
+ "title": "Don't Do This in Your First Hour of GTA 6",
+ "hook_text": "Do this before you leave",
+ "beats": [
+  {
+   "say": "You missed this in GTA 6 in your first 10 minutes. Stop and look left before you leave.",
+   "screen": "First open-world moment, camera swings left"
+  },
+  {
+   "say": "[FILL: the thing to do or grab early, in one line. Only claim what you checked yourself.]",
+   "screen": "You doing it, menu or prompt visible"
+  },
+  {
+   "say": "[FILL: what it gets you later, said plainly, no made-up numbers.]",
+   "screen": "The payoff later in the game"
+  },
+  {
+   "say": "That is the one thing. Do it before you leave, and the next few hours get easier.",
+   "screen": "Leaving the area, map opening up"
+  },
+  {
+   "say": "Save this for your next playthrough.",
+   "screen": "Save icon"
+  }
+ ]
+}
