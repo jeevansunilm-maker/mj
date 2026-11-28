@@ -1,6 +1,7 @@
 {
   "enabledPlugins": {
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "unslop@heydamir": true
   },
   "extraKnownMarketplaces": {
     "ponytail": {
@@ -8,6 +9,13 @@
         "source": "github",
         "repo": "DietrichGebert/ponytail",
         "ref": "ebd8654c2c627f721eb8f9c0d1bd4090a29f9e10"
+      }
+    },
+    "heydamir": {
+      "source": {
+        "source": "github",
+        "repo": "heydamir/unslop",
+        "ref": "620163eedb3529d9cd23a3994ed8d287d06f760d"
       }
     }
   }
